@@ -18,9 +18,11 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH) \
     hardware/amlogic/audio/utils/ini/include \
     hardware/libhardware/include \
-    system/media/audio/include
+    system/media/audio/include \
+    vendor/amlogic/frameworks/av/libaudioeffect/Utility
 
 LOCAL_SRC_FILES := ms12_dap_wapper.cpp
+LOCAL_SRC_FILES += ../Utility/AudioFade.c
 
 LOCAL_CFLAGS += -O2
 

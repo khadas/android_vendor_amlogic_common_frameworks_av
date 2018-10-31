@@ -22,6 +22,7 @@
 //#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include <utils/Log.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -41,6 +42,7 @@
 extern "C" {
 
 #include "libAmlHpeq.h"
+#include "../Utility/AudioFade.h"
 
 #define MODEL_SUM_DEFAULT_PATH "/vendor/etc/tvconfig/model/model_sum.ini"
 #define AUDIO_EFFECT_DEFAULT_PATH "/vendor/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
@@ -106,6 +108,12 @@ typedef struct HPEQContext_s {
     effect_config_t                 config;
     hpeq_state_e                    state;
     HPEQdata                        gHPEQdata;
+
+    // when recieve setting change from app,
+    //"fade audio out->do setting->fade audio In"
+    int                             bUseFade;
+    AudioFade_t                     gAudFade;
+    int32_t                         modeValue;
 } HPEQContext;
 
 const char *HPEQStatusstr[] = {"Disable", "Enable"};
@@ -119,6 +127,19 @@ const int32_t default_usr_cfg[] __unused = {
      8, -8, 12, -1, -4,   /* user */
 };
 
+    static int getprop_bool(const char *path)
+    {
+        char buf[PROPERTY_VALUE_MAX];
+        int ret = -1;
+
+        ret = property_get(path, buf, NULL);
+        if (ret > 0) {
+            if (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0) {
+                return 1;
+            }
+        }
+        return 0;
+    }
 int HPEQ_get_model_name(char *model_name, int size)
 {
      int ret = -1;
@@ -305,6 +326,14 @@ int HPEQ_configure(HPEQContext *pContext, effect_config_t *pConfig)
 
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
 
+    if (pContext->bUseFade) {
+        int channels = 2;
+        if (pConfig->inputCfg.channels == AUDIO_CHANNEL_OUT_STEREO) {
+            channels = 2;
+        }
+        AudioFadeSetFormat(&pContext->gAudFade, pConfig->inputCfg.samplingRate, channels, pConfig->inputCfg.format);
+    }
+
     return 0;
 }
 
@@ -361,6 +390,7 @@ int HPEQ_setParameter(HPEQContext *pContext, void *pParam, void *pValue)
 {
     int32_t param = *(int32_t *)pParam;
     int32_t i, value;
+    int needFade = 0;
     HPEQcfg_8bit_s custom_value;
     HPEQdata *data = &pContext->gHPEQdata;
 
@@ -372,15 +402,22 @@ int HPEQ_setParameter(HPEQContext *pContext, void *pParam, void *pValue)
         break;
     case HPEQ_PARAM_EFFECT_MODE:
         value = *(int32_t *)pValue;
-	if (value < 0 || value > data->mode_num) {
-          ALOGE("%s: incorrect mode value %d", __FUNCTION__, value);
-          return -EINVAL;
-	}
+        if (value < 0 || value > data->mode_num) {
+            ALOGE("%s: incorrect mode value %d", __FUNCTION__, value);
+            return -EINVAL;
+        }
         data->mode = value;
-        ALOGD("%s: Set Mode -> %d", __FUNCTION__, value);
-        for (i = 0; i < data->band_num; i++) {
-            ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[value * data->band_num + i]);
-            HPEQ_setBand_api(data->usr_cfg[data->mode * data->band_num + i], i + 1);
+        pContext->modeValue = data->mode;
+        ALOGD("%s: Set Mode -> %d, bUseFade = %d", __FUNCTION__, value , pContext->bUseFade);
+        if (pContext->bUseFade) {
+            AudioFade_t *pAudioFade = (AudioFade_t *) & (pContext->gAudFade);
+            AudioFadeInit(pAudioFade, fadeLinear, 10, 0);
+            AudioFadeSetState(pAudioFade, AUD_FADE_OUT_START);
+        } else {
+            for (i = 0; i < data->band_num; i++) {
+                ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[value * data->band_num + i]);
+                HPEQ_setBand_api(data->usr_cfg[data->mode * data->band_num + i], i + 1);
+            }
         }
         break;
     case HPEQ_PARAM_EFFECT_CUSTOM:
@@ -390,9 +427,26 @@ int HPEQ_setParameter(HPEQContext *pContext, void *pParam, void *pValue)
         data->usr_cfg[(data->mode_num - 1) * data->band_num + 2] = (signed int)custom_value.band3;
         data->usr_cfg[(data->mode_num - 1) * data->band_num + 3] = (signed int)custom_value.band4;
         data->usr_cfg[(data->mode_num - 1) * data->band_num + 4] = (signed int)custom_value.band5;
-        for (i = 0; i < data->band_num; i++) {
-            ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[(data->mode_num - 1) * data->band_num + i]);
-            HPEQ_setBand_api(data->usr_cfg[(data->mode_num - 1) * data->band_num + i], i + 1);
+
+        if (pContext->modeValue != data->mode_num - 1) {
+            // if we change from other mode to "CUSTOM" mode , need to do fade
+            needFade = 1;
+        } else {
+            // if we are already in "CUSTOM" mode , no need to do fade
+            needFade = 0;
+        }
+
+        pContext->modeValue = data->mode_num - 1;
+        ALOGD("%s: Set Mode -> %d, bUseFade = %d", __FUNCTION__, pContext->modeValue , pContext->bUseFade);
+        if (pContext->bUseFade && needFade) {
+            AudioFade_t *pAudioFade = (AudioFade_t *) & (pContext->gAudFade);
+            AudioFadeInit(pAudioFade, fadeLinear, 10, 0);
+            AudioFadeSetState(pAudioFade, AUD_FADE_OUT_START);
+        } else {
+            for (i = 0; i < data->band_num; i++) {
+                ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[(data->mode_num - 1) * data->band_num + i]);
+                HPEQ_setBand_api(data->usr_cfg[(data->mode_num - 1) * data->band_num + i], i + 1);
+            }
         }
     break;
     default:
@@ -441,7 +495,109 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
             *out++ = *in++;
         }
     } else {
-        HPEQ_process_api(in, out, inBuffer->frameCount);
+        if (pContext->bUseFade) {
+            int i;
+            AudioFade_t *pAudFade = (AudioFade_t *) & (pContext->gAudFade);
+            unsigned int modeValue;
+            unsigned int nSamples = (unsigned int)inBuffer->frameCount;
+
+            if (pAudFade->mFadeState != AUD_FADE_IDLE) {
+                ALOGI("%s: mFadeState -> %d, mCurrentVolume = %d,nSamples = %d", __FUNCTION__, pAudFade->mFadeState, pAudFade->mCurrentVolume, nSamples);
+            }
+
+            // do audio traisition
+            switch (pAudFade->mFadeState) {
+            case AUD_FADE_OUT_START: {
+                pAudFade->mTargetVolume = 0;
+                pAudFade->mStartVolume = 1 << 16;
+                pAudFade->mCurrentVolume = 1 << 16;
+                pAudFade->mfadeTimeUsed = 0;
+                pAudFade->mfadeFramesUsed = 0;
+                pAudFade->mfadeTimeTotal = DEFAULT_FADE_OUT_MS;
+                pAudFade->muteCounts = 1;
+                AudioFadeBuf(pAudFade, in, nSamples);
+                pAudFade->mFadeState = AUD_FADE_OUT;
+            }
+            break;
+            case AUD_FADE_OUT: {
+                // do fade out process
+                if (pAudFade->mCurrentVolume != 0) {
+                    AudioFadeBuf(pAudFade, in, nSamples);
+                } else {
+                    pAudFade->mFadeState = AUD_FADE_MUTE;
+                    // do actrually setting
+                    modeValue = pContext->modeValue;
+                    for (i = 0; i < data->band_num; i++) {
+                        ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[modeValue * data->band_num + i]);
+                        HPEQ_setBand_api(data->usr_cfg[modeValue * data->band_num + i], i + 1);
+                    }
+                    mutePCMBuf(pAudFade, in, nSamples);
+                }
+            }
+            break;
+            case AUD_FADE_MUTE: {
+                if (pAudFade->muteCounts <= 0) {
+                    pAudFade->mFadeState = AUD_FADE_IN;
+                    // slowly increase audio volume
+                    pAudFade->mTargetVolume = 1 << 16;
+                    pAudFade->mStartVolume = 0;
+                    pAudFade->mCurrentVolume = 0;
+                    pAudFade->mfadeTimeUsed = 0;
+                    pAudFade->mfadeFramesUsed = 0;
+                    pAudFade->mfadeTimeTotal = DEFAULT_FADE_IN_MS;
+                    mutePCMBuf(pAudFade, in, nSamples);
+                } else {
+                    mutePCMBuf(pAudFade, in, nSamples);
+                    pAudFade->muteCounts--;
+                }
+            }
+            break;
+            case AUD_FADE_IN: {
+                AudioFadeBuf(pAudFade, in, nSamples);
+                if (pAudFade->mCurrentVolume == 1 << 16) {
+                    pAudFade->mFadeState = AUD_FADE_IDLE;
+                }
+            }
+            break;
+            case AUD_FADE_IDLE:
+                // do nothing
+                break;
+            default:
+                break;
+            }
+
+#if 0
+            if (getprop_bool("media.audiofade.dump")) {
+                FILE *dump_fp = NULL;
+                dump_fp = fopen("/data/audio_hal/audio_in.pcm", "a+");
+                if (dump_fp != NULL) {
+                    fwrite(in, nSamples * 2 * 2, 1, dump_fp);
+                    fclose(dump_fp);
+                } else {
+                    ALOGW("[Error] Can't write to /data/dump_in.pcm");
+                }
+            }
+#endif
+
+            HPEQ_process_api(in, out, inBuffer->frameCount);
+
+#if 0
+            if (getprop_bool("media.audiofade.dump")) {
+                FILE *dump_fp = NULL;
+                dump_fp = fopen("/data/audio_hal/audio_out.pcm", "a+");
+                if (dump_fp != NULL) {
+                    fwrite(out, nSamples * 2 * 2, 1, dump_fp);
+                    fclose(dump_fp);
+                } else {
+                    ALOGW("[Error] Can't write to /data/dump_in.pcm");
+                }
+            }
+#endif
+
+        } else {
+            // original processing
+            HPEQ_process_api(in, out, inBuffer->frameCount);
+        }
     }
     return 0;
 }
@@ -578,6 +734,10 @@ int HPEQLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, int32_
     *pHandle = (effect_handle_t)pContext;
 
     pContext->state = HPEQ_STATE_INITIALIZED;
+
+    pContext->bUseFade = 1;
+    AudioFadeInit((AudioFade_t *) & (pContext->gAudFade), fadeLinear, 10, 0);
+    AudioFadeSetState((AudioFade_t *) & (pContext->gAudFade), AUD_FADE_IDLE);
 
     ALOGD("%s: %p", __FUNCTION__, pContext);
 

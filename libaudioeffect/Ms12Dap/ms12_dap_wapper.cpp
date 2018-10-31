@@ -41,6 +41,7 @@
 #include <utils/CallStack.h>
 
 extern "C" {
+#include "../Utility/AudioFade.h"
 
 #define LOG_NDEBUG_FUNCTION
 #ifdef LOG_NDEBUG_FUNCTION
@@ -344,6 +345,7 @@ extern "C" {
         unsigned int bDapEnabled;
         unsigned int dapCPDPOutputMode; // DAP_CPDP_OUTPUT_2_SPEAKER
         unsigned int dapPostGain;
+        unsigned int bNeedReset;
         //unsigned int bVolLevelerEnabled;
         DAPmode eDapEffectMode;
         dolby_virtual_surround_t dapVirtualSrnd;
@@ -362,6 +364,10 @@ extern "C" {
         void                            *gDAPLibHandler;
         DAPapi                          gDAPapi;
         DAPdata                         gDAPdata;
+
+        int                             bUseFade; // when recieve setting change from app, "fade audio out->do setting->fade audio In"
+        AudioFade_t                     gAudFade;
+        int32_t                         modeValue;
     } DAPContext;
 
 
@@ -2647,6 +2653,7 @@ extern "C" {
         }
         ALOGD("%s: dap_effect_mode -> %s", __FUNCTION__, DapEffectModeStr[pDapData->eDapEffectMode]);
 
+        //pDapData->bNeedReset = 1;
         return 0;
     }
 
@@ -4350,6 +4357,14 @@ Error:
 
         memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
 
+        if (pContext->bUseFade) {
+            int channels = 2;
+            if (pConfig->inputCfg.channels == AUDIO_CHANNEL_OUT_STEREO) {
+                channels = 2;
+            }
+            AudioFadeSetFormat(&pContext->gAudFade, pConfig->inputCfg.samplingRate, channels, pConfig->inputCfg.format);
+        }
+
         //return DAP_reset(pContext);
         return 0;
     }
@@ -4510,6 +4525,7 @@ Error:
         uint32_t param = *(uint32_t *)pParam;
         int32_t value;
         DAPcfg_8bit_s custom_value;
+        int needFade = 0;
         //float scale;
         DAPdata *pDapData = &pContext->gDAPdata;
         DAPapi *pDAPapi = (DAPapi *) & (pContext->gDAPapi);
@@ -4532,22 +4548,30 @@ Error:
             if (value > DAP_MODE_CUSTOM) {
                 value = DAP_MODE_STANDARD;
             }
-            dap_set_effect_mode(pContext, (DAPmode)value);
 
-            // To compatible with UI design.
-            // Need to disable EQ bands setting to default value
-            // otherwise audio will enhance or impire in standard/music/movie... mode.
-            if (pDapData->eDapEffectMode != DAP_MODE_CUSTOM) {
-                dolby_eq_t dapEQTmp;
-                // default setting.
-                memcpy((void *) & (dapEQTmp), (void *)&default_dap_eq, sizeof(dolby_eq));
-                // disable GEQ
-                dapEQTmp.eq_enable.geq_enable = 0;
-                dap_set_eq_params(pContext, (dolby_eq_t *) & dapEQTmp);
-                ALOGD("%s: Disable GEQ", __FUNCTION__);
+            pContext->modeValue = value;
+
+            if (pContext->bUseFade) {
+                AudioFade_t *pAudioFade = (AudioFade_t *) & (pContext->gAudFade);
+                AudioFadeInit(pAudioFade, fadeLinear, 10, 0);
+                AudioFadeSetState(pAudioFade, AUD_FADE_OUT_START);
+            } else {
+                // origninal code
+                dap_set_effect_mode(pContext, (DAPmode)value);
+
+                // To compatible with UI design.
+                // Need to disable EQ bands setting to default value
+                // otherwise audio will enhance or impire in standard/music/movie... mode.
+                if (pDapData->eDapEffectMode != DAP_MODE_CUSTOM) {
+                    dolby_eq_t dapEQTmp;
+                    // default setting.
+                    memcpy((void *) & (dapEQTmp), (void *)&default_dap_eq, sizeof(dolby_eq));
+                    // disable GEQ
+                    dapEQTmp.eq_enable.geq_enable = 0;
+                    dap_set_eq_params(pContext, (dolby_eq_t *) & dapEQTmp);
+                    ALOGD("%s: Disable GEQ", __FUNCTION__);
+                }
             }
-
-
             ALOGD("%s: Set DAP effect -> %s", __FUNCTION__, DapEffectModeStr[value]);
             break;
         case DAP_PARAM_POST_GAIN:
@@ -4652,14 +4676,43 @@ Error:
             // apply standard DAP audio effect when tuning EQ bands
             // customer request
             value = DAP_MODE_CUSTOM;
-            dap_set_effect_mode(pContext, (DAPmode)value);
-
-            // apply eq setting
-            dap_set_eq_params(pContext, (dolby_eq_t *) & (pDapData->dapEQ));
-
             // java set wrong value when it [user]=DAP_MODE_CUSTOM, we have to modify it here
             // TODO: Ask java application to fix it
             pDapData->eDapEffectMode = DAP_MODE_CUSTOM;
+
+            if (pContext->modeValue != DAP_MODE_CUSTOM) {
+                // if we change from other mode to "CUSTOM" mode , need to do fade
+                needFade = 1;
+            } else {
+                // if we are already in "CUSTOM" mode , no need to do fade
+                needFade = 0;
+            }
+
+            pContext->modeValue = pDapData->eDapEffectMode;
+            if (pContext->bUseFade && needFade) {
+                AudioFade_t *pAudioFade = (AudioFade_t *) & (pContext->gAudFade);
+                AudioFadeInit(pAudioFade, fadeLinear, 10, 0);
+                AudioFadeSetState(pAudioFade, AUD_FADE_OUT_START);
+            } else {
+                // origninal code
+                dap_set_effect_mode(pContext, (DAPmode)value);
+
+                // To compatible with UI design.
+                // Need to disable EQ bands setting to default value
+                // otherwise audio will enhance or impire in standard/music/movie... mode.
+                if (pDapData->eDapEffectMode != DAP_MODE_CUSTOM) {
+                    dolby_eq_t dapEQTmp;
+                    // default setting.
+                    memcpy((void *) & (dapEQTmp), (void *)&default_dap_eq, sizeof(dolby_eq));
+                    // disable GEQ
+                    dapEQTmp.eq_enable.geq_enable = 0;
+                    dap_set_eq_params(pContext, (dolby_eq_t *) & dapEQTmp);
+                    ALOGD("%s: Disable GEQ", __FUNCTION__);
+                } else {
+                    // apply eq setting
+                    dap_set_eq_params(pContext, (dolby_eq_t *) & (pDapData->dapEQ));
+                }
+            }
 
             for (i = 0; i < pDapData->dapEQ.eq_params.geq_nb_bands; i++) {
                 ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, pDapData->dapEQ.eq_params.a_geq_band_target[i]);
@@ -4796,7 +4849,7 @@ Error:
         ALOGV("%s, inSampleSize = %d, outSampleSize = %d, inChannels = %d, outChannels = %d, inFrameCnt = %d\n",
               __FUNCTION__, inSampleSize, outSampleSize, inChannels, outChannels, inBuffer->frameCount);
 
-        if (!pDapData->bDapCPDPInited) {
+        if (!pDapData->bDapCPDPInited || pDapData->bNeedReset) {
             if (NULL == pDapData->inStorgeBuf) {
                 tmpSize = inBuffer->frameCount * inChannels * inSampleSize;
                 pDapData->inStorgeBuf = malloc(tmpSize);
@@ -4839,6 +4892,8 @@ Error:
             //dap_set_virtual_surround(pContext, (dolby_virtual_surround_t *)&pDapData->dapVirtualSrnd);
             //dap_set_eq_params(pContext, (dolby_eq_t *)&pDapData->dapEQ);
             dap_set_enable(pContext, pDapData->bDapEnabled);
+
+            pDapData->bNeedReset = 0;
         }
         pDapData->curInfrmCnts = inBuffer->frameCount;
 
@@ -4884,9 +4939,97 @@ Error:
         outDlbBuf.ppdata = channel_pointers;
         outDlbBuf.data_type = 4;//DLB_BUFFER_SHORT_16;
 
+        int16_t   *pIn16  = (int16_t *)inBuffer->raw;
+        int16_t   *pOut16 = (int16_t *)outBuffer->raw;
         unsigned char *pInChar = (unsigned char *)inBuffer->raw;
         unsigned char *pOutChar = (unsigned char *)outBuffer->raw;
 
+        if (pContext->bUseFade) {
+            int i;
+            AudioFade_t *pAudFade = (AudioFade_t *) & (pContext->gAudFade);
+            unsigned int modeValue;
+            unsigned int nSamples = (unsigned int)inBuffer->frameCount;
+
+            if (pAudFade->mFadeState != AUD_FADE_IDLE) {
+                ALOGI("%s: mFadeState -> %d, mCurrentVolume = %d,nSamples = %d", __FUNCTION__, pAudFade->mFadeState, pAudFade->mCurrentVolume, nSamples);
+            }
+
+            // do audio fade out, set mode change, do audio fade in
+            switch (pAudFade->mFadeState) {
+            case AUD_FADE_OUT_START: {
+                pAudFade->mTargetVolume = 0;
+                pAudFade->mStartVolume = 1 << 16;
+                pAudFade->mCurrentVolume = 1 << 16;
+                pAudFade->mfadeTimeUsed = 0;
+                pAudFade->mfadeFramesUsed = 0;
+                pAudFade->mfadeTimeTotal = DEFAULT_FADE_OUT_MS;
+                pAudFade->muteCounts = 1;
+                AudioFadeBuf(pAudFade, pIn16, nSamples);
+                pAudFade->mFadeState = AUD_FADE_OUT;
+            }
+            break;
+            case AUD_FADE_OUT: {
+                // do fade out process
+                if (pAudFade->mCurrentVolume != 0) {
+                    AudioFadeBuf(pAudFade, pIn16, nSamples);
+                } else {
+                    pAudFade->mFadeState = AUD_FADE_MUTE;
+                    mutePCMBuf(pAudFade, pIn16, nSamples);
+                }
+            }
+            break;
+            case AUD_FADE_MUTE: {
+                if (pAudFade->muteCounts <= 0) {
+                    pAudFade->mFadeState = AUD_FADE_IN;
+                    // slowly increase audio volume
+                    pAudFade->mTargetVolume = 1 << 16;
+                    pAudFade->mStartVolume = 0;
+                    pAudFade->mCurrentVolume = 0;
+                    pAudFade->mfadeTimeUsed = 0;
+                    pAudFade->mfadeFramesUsed = 0;
+                    pAudFade->mfadeTimeTotal = DEFAULT_FADE_IN_MS;
+                    mutePCMBuf(pAudFade, pIn16, nSamples);
+                    // do actrually setting
+                    modeValue = pContext->modeValue;
+                    // origninal code
+                    dap_set_effect_mode(pContext, (DAPmode)modeValue);
+                    // To compatible with UI design.
+                    // Need to disable EQ bands setting to default value
+                    // otherwise audio will enhance or impire in standard/music/movie... mode.
+                    if (pDapData->eDapEffectMode != DAP_MODE_CUSTOM) {
+                        dolby_eq_t dapEQTmp;
+                        // default setting.
+                        memcpy((void *) & (dapEQTmp), (void *)&default_dap_eq, sizeof(dolby_eq));
+                        // disable GEQ
+                        dapEQTmp.eq_enable.geq_enable = 0;
+                        dap_set_eq_params(pContext, (dolby_eq_t *) & dapEQTmp);
+                        ALOGD("%s: Disable GEQ", __FUNCTION__);
+                    } else {
+                        // apply eq setting
+                        dap_set_eq_params(pContext, (dolby_eq_t *) & (pDapData->dapEQ));
+                    }
+                } else {
+                    mutePCMBuf(pAudFade, pIn16, nSamples);
+                    pAudFade->muteCounts--;
+                }
+            }
+            break;
+            case AUD_FADE_IN: {
+                AudioFadeBuf(pAudFade, pIn16, nSamples);
+                if (pAudFade->mCurrentVolume == 1 << 16) {
+                    pAudFade->mFadeState = AUD_FADE_IDLE;
+                }
+            }
+            break;
+            case AUD_FADE_IDLE:
+                // do nothing
+                break;
+            default:
+                break;
+            }
+        }
+
+        // begain start processing data
         tmpSize = inBuffer->frameCount * inChannels * inSampleSize;
         if (pDapData->inStorgeBufSize < tmpSize) {
             ALOGI("%s,realloc pDapData->inStorgeBuf size from %zu to %zu", __FUNCTION__, pDapData->inStorgeBufSize, tmpSize);
@@ -5123,6 +5266,7 @@ Error:
 
         // MUST first set DAP default value, then load from ini file.
         pContext->gDAPdata.bDapEnabled = 1;
+        pContext->gDAPdata.bNeedReset = 0;
         pContext->gDAPdata.dapCPDPOutputMode = DAP_CPDP_OUTPUT_2_SPEAKER;
         pContext->gDAPdata.dapPostGain = DEFAULT_POSTGAIN;
         pContext->gDAPdata.eDapEffectMode = DAP_MODE_STANDARD;
@@ -5170,6 +5314,10 @@ Error:
         pContext->state = DAP_STATE_UNINITIALIZED;
 
         *pHandle = (effect_handle_t)pContext;
+
+        pContext->bUseFade = 1;
+        AudioFadeInit((AudioFade_t *) & (pContext->gAudFade), fadeLinear, 10, 0);
+        AudioFadeSetState((AudioFade_t *) & (pContext->gAudFade), AUD_FADE_IDLE);
 
         pContext->state = DAP_STATE_INITIALIZED;
 
