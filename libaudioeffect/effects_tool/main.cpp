@@ -124,6 +124,7 @@ const char *SRSSurroundstr[] = {"Disable", "Enable"};
 const char *SRSDialogClarityModestr[] = {"OFF", "LOW", "HIGH"};
 const char *SRSSurroundModestr[] = {"ON", "OFF"};
 
+/*
 //-------------TrebleBass parameters--------------------------
 typedef struct HPEQ_param_s {
     effect_param_t param;
@@ -147,11 +148,71 @@ HPEQ_param_t gHPEQParam[] = {
 };
 
 const char *HPEQStatusstr[] = {"Disable", "Enable"};
-//-------UUID--------------------------------
+*/
+//-------------HPEQ parameters--------------------------
+typedef struct HPEQ_param_s {
+    effect_param_t param;
+    uint32_t command;
+    union {
+        uint32_t v;
+        float f;
+        signed char band[5];
+    };
+} HPEQ_param_t;
+
+typedef enum {
+    HPEQ_PARAM_ENABLE = 0,
+    HPEQ_PARAM_EFFECT_MODE,
+    HPEQ_PARAM_EFFECT_CUSTOM,
+} HPEQ_params;
+
+HPEQ_param_t gHPEQParam[] = {
+    {{0, 4, 4}, HPEQ_PARAM_ENABLE, {1}},
+    {{0, 4, 4}, HPEQ_PARAM_EFFECT_MODE, {0}},
+    {{0, 4, 5}, HPEQ_PARAM_EFFECT_CUSTOM, {0}},
+};
+
+const char *HPEQStatusstr[] = {"Disable", "Enable"};
+
+//-------------AVL parameters--------------------------
+typedef struct Avl_param_s {
+    effect_param_t param;
+    uint32_t command;
+    union {
+        int32_t v;
+        float f;
+    };
+} Avl_param_t;
+
+typedef enum {
+    AVL_PARAM_ENABLE,
+    AVL_PARAM_PEAK_LEVEL,
+    AVL_PARAM_DYNAMIC_THRESHOLD,
+    AVL_PARAM_NOISE_THRESHOLD,
+    AVL_PARAM_RESPONSE_TIME,
+    AVL_PARAM_RELEASE_TIME,
+    AVL_PARAM_SOURCE_IN,
+} Avl_params;
+
+Avl_param_t gAvlParam[] = {
+    {{0, 4, 4}, AVL_PARAM_ENABLE, {1}},
+    {{0, 4, 4}, AVL_PARAM_PEAK_LEVEL, {-18}},
+    {{0, 4, 4}, AVL_PARAM_DYNAMIC_THRESHOLD, {-24}},
+    {{0, 4, 4}, AVL_PARAM_NOISE_THRESHOLD, {-40}},
+    {{0, 4, 4}, AVL_PARAM_RESPONSE_TIME, {512}},
+    {{0, 4, 4}, AVL_PARAM_RELEASE_TIME, {2}},
+    {{0, 4, 4}, AVL_PARAM_SOURCE_IN, {3}},
+};
+
+const char *AvlStatusstr[] = {"Disable", "Enable"};
+
+//-------UUID------------------------------------------
 typedef enum {
     EFFECT_BALANCE = 0,
     EFFECT_SRS,
+    EFFECT_TREBLEBASS,
     EFFECT_HPEQ,
+    EFFECT_AVL,
     EFFECT_MAX,
 } EFFECT_params;
 
@@ -159,6 +220,8 @@ effect_uuid_t gEffectStr[] = {
     {0x6f33b3a0, 0x578e, 0x11e5, 0x892f, {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}}, // 0:Balance
     {0x8a857720, 0x0209, 0x11e2, 0xa9d8, {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}}, // 1:TruSurround
     {0x76733af0, 0x2889, 0x11e2, 0x81c1, {0x08, 0x00, 0x20, 0x0c, 0x9a, 0x66}}, // 2:TrebleBass
+    {0x049754aa, 0xc4cf, 0x439f, 0x897e, {0x37, 0xdd, 0x0c, 0x38, 0x11, 0x20}}, // 3:Hpeq
+    {0x08246a2a, 0xb2d3, 0x4621, 0xb804, {0x42, 0xc9, 0xb4, 0x78, 0xeb, 0x9d}}, // 4:Avl
 };
 
 static int Balance_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
@@ -400,7 +463,7 @@ static int SRS_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPara
         return -1;
     }
 }
-
+/*
 static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
 {
     switch (gParamIndex) {
@@ -436,6 +499,129 @@ static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPar
         return 0;
     default:
         LOG("TrebleBass: ParamIndex = %d invalid\n", gParamIndex);
+        return -1;
+    }
+}
+*/
+static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBand[5])
+{
+    switch (gParamIndex) {
+    case HPEQ_PARAM_ENABLE:
+         if (gParamValue < 0 || gParamValue > 1) {
+            LOG("HPEQ: Status gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gHPEQParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gHPEQParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gHPEQParam[gParamIndex].param);
+        LOG("HPEQ: Status is %d -> %s\n", gParamValue, HPEQStatusstr[gHPEQParam[gParamIndex].v]);
+        return 0;
+    case HPEQ_PARAM_EFFECT_MODE:
+        if (gParamValue < 0 || gParamValue > 6) {
+            LOG("Hpeq:gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gHPEQParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gHPEQParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gHPEQParam[gParamIndex].param);
+        LOG("HPEQ: mode is %d -> %d\n", gParamValue, gHPEQParam[gParamIndex].v);
+        return 0;
+    case HPEQ_PARAM_EFFECT_CUSTOM:
+        for (int i =0; i<5;i++) {
+           if (gParamBand[i]< -10 || gParamBand[i] >10) {
+              LOG("Hpeq:gParamBand[%d] = %d invalid\n",i, gParamBand[i]);
+              return -1;
+           }
+        }
+        gHPEQParam[gParamIndex].band[0] = gParamBand[0];
+        gHPEQParam[gParamIndex].band[1] = gParamBand[1];
+        gHPEQParam[gParamIndex].band[2] = gParamBand[2];
+        gHPEQParam[gParamIndex].band[3] = gParamBand[3];
+        gHPEQParam[gParamIndex].band[4] = gParamBand[4];
+        gAudioEffect->setParameter(&gHPEQParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gHPEQParam[gParamIndex].param);
+        return 0;
+    default:
+        LOG("HPEQ: ParamIndex = %d invalid\n", gParamIndex);
+        return -1;
+    }
+}
+
+static int Avl_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
+{
+    switch (gParamIndex) {
+    case AVL_PARAM_ENABLE:
+         if (gParamValue < 0 || gParamValue > 1) {
+            LOG("AVL: Status gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gAvlParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
+        LOG("Avl: Status is %d -> %s\n", gParamValue, AvlStatusstr[gAvlParam[gParamIndex].v]);
+        return 0;
+    case AVL_PARAM_PEAK_LEVEL:
+         if (gParamValue < -30 || gParamValue > 0) {
+            LOG("AVL: Status gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gAvlParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
+        LOG("Avl: peak_level is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
+        return 0;
+    case AVL_PARAM_DYNAMIC_THRESHOLD:
+         if (gParamValue < -60 || gParamValue > 0) {
+            LOG("AVL: dynamic_threshold = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gAvlParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
+        LOG("Avl: dynamic_threshold is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
+        return 0;
+     case AVL_PARAM_NOISE_THRESHOLD:
+         if (gParamValue > -10) {
+            LOG("AVL: noise_threshold = %d invalid\n", gParamValue);
+            return -1;
+        }
+         gAvlParam[gParamIndex].v = gParamValue;
+         gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
+         gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
+         LOG("Avl: noise_threshold is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
+         return 0;
+    case AVL_PARAM_RESPONSE_TIME:
+         if (gParamValue < 128 || gParamValue > 2048) {
+            LOG("AVL: Status gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gAvlParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
+        LOG("Avl: Status is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
+        return 0;
+    case AVL_PARAM_RELEASE_TIME:
+         if (gParamValue < 2 || gParamValue > 8) {
+            LOG("AVL: Status gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gAvlParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
+        LOG("Avl: Status is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
+        return 0;
+    case AVL_PARAM_SOURCE_IN:
+        if (gParamValue < 0 || gParamValue > 5) {
+            LOG("Avl: source_id gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gAvlParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
+        LOG("Avl: source_id is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
+        return 0;
+   default:
+        LOG("Avl: ParamIndex = %d invalid\n", gParamIndex);
         return -1;
     }
 }
@@ -493,8 +679,9 @@ int main(int argc,char **argv)
     int gParamIndex = 0;
     int gParamValue = 0;
     float gParamScale = 0.0;
+    signed char gParamBand[5]={0};
     status_t status = NO_ERROR;
-    String16 name16[EFFECT_MAX] = {String16("AudioEffectEQTest"), String16("AudioEffectSRSTest"), String16("AudioEffectHPEQTest")};
+    String16 name16[EFFECT_MAX] = {String16("AudioEffectEQTest"), String16("AudioEffectSRSTest"), String16("AudioEffectHPEQTest"),String16("AudioEffectAVLTest")};
     AudioEffect* gAudioEffect[EFFECT_MAX] = {0};
     audio_session_t gSessionId = AUDIO_SESSION_OUTPUT_MIX;
 
@@ -552,19 +739,51 @@ int main(int argc,char **argv)
     LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
     LOG("****************************************************************************\n\n");
 
-    if (argc != 4) {
-        LOG("Usage: %s <EffectIndex> <ParamIndex> <ParamValue/ParamScale>\n", argv[0]);
+    LOG("*********************************HPEQ*********************************\n");
+    LOG("EffectIndex: 3\n");
+    LOG("ParamIndex: 0 -> Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 1 -> Mode\n");
+    LOG("ParamValue: 0 -> Standard  1 -> Music   2 -> news  3 -> movie   4 -> game   5->user\n");
+    LOG("ParamIndex: 2 -> custom\n");
+    LOG("ParamValue: -10 ~10 \n");
+
+    LOG("*********************************Avl*********************************\n");
+    LOG("EffectIndex: 4\n");
+    LOG("ParamIndex: 0 -> Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 1 -> Peak Level\n");
+    LOG("ParamScale: -30.0 ~ 0.0\n");
+    LOG("ParamIndex: 2 -> Dynamic Threshold\n");
+    LOG("ParamScale: 0 ~ -60\n");
+    LOG("ParamIndex: 3 -> Noise Threshold\n");
+    LOG("ParamScale: -NAN ~ -10\n");
+    LOG("ParamIndex: 4 -> Response Time\n");
+    LOG("ParamValue: 128 ~ 2048\n");
+    LOG("ParamIndex: 5 -> Release Time\n");
+    LOG("ParamValue: 2 ~ 8\n");
+    LOG("ParamIndex: 6 -> Source In\n");
+    LOG("ParamValue: 0 -> DTV  1 -> ATV   2 -> AV  3 -> HDMI   4 -> SPDIF  5->REMOTE_SUBMIX  6->WIRED_HEADSET\n");
+    LOG("****************************************************************************\n\n");
+
+   if (argc != 4 && argc != 8) {
+        LOG("Usage: %s <EffectIndex> <ParamIndex> <ParamValue/ParamScale/gParamBand>\n", argv[0]);
         return -1;
-    } else {
+   } else {
         LOG("start...\n");
         sscanf(argv[1], "%d", &gEffectIndex);
         sscanf(argv[2], "%d", &gParamIndex);
         if (gEffectIndex == 1 && (gParamIndex == 7 || gParamIndex == 9 || gParamIndex == 11 || (gParamIndex >= 13 && gParamIndex <= 16)))
             sscanf(argv[3], "%f", &gParamScale);
-        else
+        else if (gEffectIndex == 3 && gParamIndex == 2) {
+            sscanf(argv[3], "%d", &gParamBand[0]);
+            sscanf(argv[4], "%d", &gParamBand[1]);
+            sscanf(argv[5], "%d", &gParamBand[2]);
+            sscanf(argv[6], "%d", &gParamBand[3]);
+            sscanf(argv[7], "%d", &gParamBand[4]);
+            } else
             sscanf(argv[3], "%d", &gParamValue);
     }
-
     if (gEffectIndex >= (int)(sizeof(gEffectStr)/sizeof(gEffectStr[0]))) {
         LOG("Effect is not exist\n");
         return -1;
@@ -572,8 +791,11 @@ int main(int argc,char **argv)
 
     if (gEffectIndex == 1 && (gParamIndex == 7 || gParamIndex == 9 || gParamIndex == 11 || (gParamIndex >= 13 && gParamIndex <= 16)))
         LOG("EffectIndex:%d, ParamIndex:%d, ParamScale:%f\n", gEffectIndex, gParamIndex, gParamScale);
-    else
-        LOG("EffectIndex:%d, ParamIndex:%d, Paramvalue:%d\n", gEffectIndex, gParamIndex, gParamValue);
+    else if (gEffectIndex == 3 && gParamIndex == 2) {
+          for (int i = 0; i < 5; i++)
+             LOG("EffectIndex:%d, ParamIndex:%d, ParamBand:%d\n", gEffectIndex, gParamIndex, gParamBand[i]);
+        } else
+             LOG("EffectIndex:%d, ParamIndex:%d, Paramvalue:%d\n", gEffectIndex, gParamIndex, gParamValue);
     while (1) {
         switch (gEffectIndex) {
         case EFFECT_BALANCE:
@@ -603,8 +825,18 @@ int main(int argc,char **argv)
                 goto Error;
             }
             //------------set TrebleBass parameters------------------------------------
-            if (HPEQ_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0)
-                LOG("TrebleBass Test failed\n");
+            if (HPEQ_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue,gParamBand) < 0)
+                LOG("HPEQ Test failed\n");
+            break;
+         case EFFECT_AVL:
+            ret = create_audio_effect(&gAudioEffect[EFFECT_AVL], name16[EFFECT_AVL], EFFECT_AVL);
+            if (ret < 0) {
+                LOG("create AVl effect failed\n");
+                goto Error;
+            }
+            //------------set Avl parameters------------------------------------
+            if (Avl_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0)
+                LOG("Avl Test failed\n");
             break;
         default:
             LOG("EffectIndex = %d invalid\n", gEffectIndex);
@@ -621,7 +853,13 @@ int main(int argc,char **argv)
         scanf("%d", &gParamIndex);
         if (gEffectIndex == 1 && (gParamIndex == 7 || gParamIndex == 9 || gParamIndex == 11 || (gParamIndex >= 13 && gParamIndex <= 16)))
             scanf("%f", &gParamScale);
-        else
+        else if (gEffectIndex == 3 && gParamIndex == 2) {
+               sscanf(argv[3], "%d ", &gParamBand[0]);
+               sscanf(argv[4], "%d ", &gParamBand[1]);
+               sscanf(argv[5], "%d ", &gParamBand[2]);
+               sscanf(argv[6], "%d ", &gParamBand[3]);
+               sscanf(argv[7], "%d ", &gParamBand[4]);
+        } else
             scanf("%d", &gParamValue);
 
         if (gEffectIndex >= (int)(sizeof(gEffectStr)/sizeof(gEffectStr[0]))) {
