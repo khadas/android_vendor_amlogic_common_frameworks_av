@@ -30,13 +30,21 @@
 #include <utils/Log.h>
 #include <errno.h>
 #include <media/AudioEffect.h>
+#include <media/AudioSystem.h>
+#include <media/AudioParameter.h>
 
 #ifdef LOG
 #undef LOG
 #endif
 #define LOG(x...) printf("[AudioEffect] " x)
+#define LSR (1)
 
 using namespace android;
+
+//Warning:balance is used for 51 bands
+
+#define BALANCE_MAX_BANDS 51
+#define BALANCE_MAX_LEVEL 25
 
 //-----------Balance parameters-------------------------------
 typedef struct Balance_param_s {
@@ -45,6 +53,7 @@ typedef struct Balance_param_s {
     union {
         int32_t v;
         float f;
+        float index[BALANCE_MAX_BANDS];
     };
 } Balance_param_t;
 
@@ -52,15 +61,28 @@ typedef enum {
     BALANCE_PARAM_LEVEL = 0,
     BALANCE_PARAM_ENABLE,
     BALANCE_PARAM_LEVEL_NUM,
+    BALANCE_PARAM_INDEX,
+    BALANCE_PARAM_USB,
+    BALANCE_PARAM_BT,
 } Balance_params;
 
 Balance_param_t gBalanceParam[] = {
-    {{0, 4, 4}, BALANCE_PARAM_LEVEL, {25}},
+    {{0, 4, 4}, BALANCE_PARAM_LEVEL, {BALANCE_MAX_LEVEL}},
     {{0, 4, 4}, BALANCE_PARAM_ENABLE, {1}},
-    {{0, 4, 4}, BALANCE_PARAM_LEVEL_NUM, {51}},
+    {{0, 4, 4}, BALANCE_PARAM_LEVEL_NUM, {BALANCE_MAX_BANDS}},
+    {{0, 4, BALANCE_MAX_BANDS * 4}, BALANCE_PARAM_INDEX, {0}},
+    {{0, 4, 4}, BALANCE_PARAM_USB, {0}},
+    {{0, 4, 4}, BALANCE_PARAM_BT, {0}},
 };
 
+struct balance_gain {
+   float right_gain;
+   float left_gain;
+};
+
+
 int balance_level_num = 0;
+float index1[BALANCE_MAX_BANDS] = {0};
 
 const char *BalanceStatusstr[] = {"Disable", "Enable"};
 //-----------TruSurround parameters---------------------------
@@ -124,31 +146,31 @@ const char *SRSSurroundstr[] = {"Disable", "Enable"};
 const char *SRSDialogClarityModestr[] = {"OFF", "LOW", "HIGH"};
 const char *SRSSurroundModestr[] = {"ON", "OFF"};
 
-/*
+
 //-------------TrebleBass parameters--------------------------
-typedef struct HPEQ_param_s {
+typedef struct TrebleBass_param_s {
     effect_param_t param;
     uint32_t command;
     union {
         uint32_t v;
         float f;
     };
-} HPEQ_param_t;
+} TrebleBass_param_t;
 
 typedef enum {
-    HPEQ_PARAM_BASS = 0,
-    HPEQ_PARAM_TREBLE,
-    HPEQ_PARAM_ENABLE,
-} HPEQ_params;
+    TREBASS_PARAM_BASS_LEVEL = 0,
+    TREBASS_PARAM_TREBLE_LEVEL,
+    TREBASS_PARAM_ENABLE,
+} TrebleBass_params;
 
-HPEQ_param_t gHPEQParam[] = {
-    {{0, 4, 4}, HPEQ_PARAM_BASS, {0}},
-    {{0, 4, 4}, HPEQ_PARAM_TREBLE, {0}},
-    {{0, 4, 4}, HPEQ_PARAM_ENABLE, {1}},
+TrebleBass_param_t gTrebleBassParam[] = {
+    {{0, 4, 4}, TREBASS_PARAM_BASS_LEVEL, {0}},
+    {{0, 4, 4}, TREBASS_PARAM_TREBLE_LEVEL, {0}},
+    {{0, 4, 4}, TREBASS_PARAM_ENABLE, {1}},
 };
 
-const char *HPEQStatusstr[] = {"Disable", "Enable"};
-*/
+const char *TREBASSStatusstr[] = {"Disable", "Enable"};
+
 //-------------HPEQ parameters--------------------------
 typedef struct HPEQ_param_s {
     effect_param_t param;
@@ -224,12 +246,33 @@ effect_uuid_t gEffectStr[] = {
     {0x08246a2a, 0xb2d3, 0x4621, 0xb804, {0x42, 0xc9, 0xb4, 0x78, 0xeb, 0x9d}}, // 4:Avl
 };
 
+static inline float DbToAmpl(float decibels)
+{
+    if (decibels <= -758) {
+        return 0.0f;
+    }
+    return exp( decibels * 0.115129f); // exp( dB * ln(10) / 20 )
+}
+
 static int Balance_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
 {
+    balance_gain blrg;
+    String8 keyValuePairs = String8("");
+    String8 mString = String8("");
+    char valuel[64] = {0};
+    AudioParameter param = AudioParameter();
+    audio_io_handle_t handle = AUDIO_IO_HANDLE_NONE;
+    int32_t value = 0;
+    int32_t total_gain = 0;
     if (balance_level_num == 0) {
         gAudioEffect->getParameter(&gBalanceParam[BALANCE_PARAM_LEVEL_NUM].param);
         balance_level_num = gBalanceParam[BALANCE_PARAM_LEVEL_NUM].v;
         LOG("Balance: Level size = %d\n", balance_level_num);
+    }
+    gAudioEffect->getParameter(&gBalanceParam[BALANCE_PARAM_INDEX].param);
+    for (int i = 0; i < balance_level_num; i++) {
+        index1[i] = gBalanceParam[BALANCE_PARAM_INDEX].index[i];
+        //LOG("Balance: index = %f\n", index1[i]);
     }
     switch (gParamIndex) {
     case BALANCE_PARAM_LEVEL:
@@ -251,6 +294,74 @@ static int Balance_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int g
         gAudioEffect->setParameter(&gBalanceParam[gParamIndex].param);
         gAudioEffect->getParameter(&gBalanceParam[gParamIndex].param);
         LOG("Balance: Status is %d -> %s\n", gParamValue, BalanceStatusstr[gBalanceParam[gParamIndex].v]);
+        return 0;
+    case BALANCE_PARAM_USB:
+        gBalanceParam[gParamIndex].v = gParamValue;
+        value = (((int)gBalanceParam[gParamIndex].v) >> LSR);
+        if (value >= balance_level_num)
+           value = balance_level_num;
+        else if (value < 0)
+            value = 0;
+        if (value < (balance_level_num >> LSR)) {
+           //right process
+           blrg.left_gain = 1;
+           blrg.right_gain = index1[value];
+           snprintf(valuel, 40, "%f %f", blrg.right_gain,blrg.left_gain);
+           param.add(String8("USB_GAIN_RIGHT"), String8(valuel));
+           keyValuePairs = param.toString();
+           if (AudioSystem::setParameters(handle, keyValuePairs) != NO_ERROR) {
+             LOG("setusbgain: Set gain failed\n");
+             return -1;
+           }
+         param.remove(String8("USB_GAIN_RIGHT"));
+        } else {
+          //left process
+           blrg.right_gain = 1;
+           blrg.left_gain = index1[value];
+           snprintf(valuel, 40, "%f %f", blrg.left_gain,blrg.right_gain);
+           param.add(String8("USB_GAIN_LEFT"), String8(valuel));
+           keyValuePairs = param.toString();
+           if (AudioSystem::setParameters(handle, keyValuePairs) != NO_ERROR) {
+             LOG("setusbgain: Set gain failed\n");
+             return -1;
+          }
+           param.remove(String8("USB_GAIN_LEFT"));
+       }
+        return 0;
+    case BALANCE_PARAM_BT:
+        gBalanceParam[gParamIndex].v = gParamValue;
+        value = (((int)gBalanceParam[gParamIndex].v) >> LSR);
+        if (value >= balance_level_num)
+           value = balance_level_num;
+        else if (value < 0)
+            value = 0;
+        if (value < (balance_level_num >> LSR)) {
+           //right process
+           blrg.left_gain = 1;
+           blrg.right_gain = index1[value];
+           LOG("blrg.left_gain is %f riht gian is %f",blrg.left_gain,blrg.right_gain);
+           snprintf(valuel, 40, "%f %f", blrg.right_gain,blrg.left_gain);
+           param.add(String8("BT_GAIN_RIGHT"), String8(valuel));
+           keyValuePairs = param.toString();
+           if (AudioSystem::setParameters(handle, keyValuePairs) != NO_ERROR) {
+             LOG("setbtgain: Set gain failed\n");
+             return -1;
+           }
+         param.remove(String8("BT_GAIN_RIGHT"));
+        } else {
+          //left process
+           blrg.right_gain = 1;
+           blrg.left_gain = index1[value];
+           LOG("blrg.left_gain is %f riht gian is %f",blrg.left_gain,blrg.right_gain);
+           snprintf(valuel, 40, "%f %f", blrg.left_gain,blrg.right_gain);
+           param.add(String8("BT_GAIN_LEFT"), String8(valuel));
+           keyValuePairs = param.toString();
+           if (AudioSystem::setParameters(handle, keyValuePairs) != NO_ERROR) {
+             LOG("setbtgain: Set gain failed\n");
+             return -1;
+           }
+           param.remove(String8("BT_GAIN_LEFT"));
+        }
         return 0;
     default:
         LOG("Balance: ParamIndex = %d invalid\n", gParamIndex);
@@ -463,46 +574,46 @@ static int SRS_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPara
         return -1;
     }
 }
-/*
-static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
+
+static int TrebleBass_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue)
 {
     switch (gParamIndex) {
-    case HPEQ_PARAM_BASS:
+    case TREBASS_PARAM_BASS_LEVEL:
         if (gParamValue < 0 || gParamValue > 100) {
             LOG("TrebleBass: Bass gParamValue = %d invalid\n", gParamValue);
             return -1;
         }
-        gHPEQParam[gParamIndex].v = gParamValue;
-        gAudioEffect->setParameter(&gHPEQParam[gParamIndex].param);
-        gAudioEffect->getParameter(&gHPEQParam[gParamIndex].param);
-        LOG("TrebleBass: Bass is %d -> %d level\n", gParamValue, gHPEQParam[gParamIndex].v);
+        gTrebleBassParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gTrebleBassParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gTrebleBassParam[gParamIndex].param);
+        LOG("TrebleBass: Bass is %d -> %d level\n", gParamValue, gTrebleBassParam[gParamIndex].v);
         return 0;
-    case HPEQ_PARAM_TREBLE:
+    case TREBASS_PARAM_TREBLE_LEVEL:
         if (gParamValue < 0 || gParamValue > 100) {
             LOG("TrebleBass: Treble gParamValue = %d invalid\n", gParamValue);
             return -1;
         }
-        gHPEQParam[gParamIndex].v = gParamValue;
-        gAudioEffect->setParameter(&gHPEQParam[gParamIndex].param);
-        gAudioEffect->getParameter(&gHPEQParam[gParamIndex].param);
-        LOG("TrebleBass: Treble is %d -> %d level\n", gParamValue, gHPEQParam[gParamIndex].v);
+        gTrebleBassParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gTrebleBassParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gTrebleBassParam[gParamIndex].param);
+        LOG("TrebleBass: Treble is %d -> %d level\n", gParamValue, gTrebleBassParam[gParamIndex].v);
         return 0;
-    case HPEQ_PARAM_ENABLE:
+    case TREBASS_PARAM_ENABLE:
         if (gParamValue < 0 || gParamValue > 1) {
             LOG("TrebleBass: Status gParamValue = %d invalid\n", gParamValue);
             return -1;
         }
-        gHPEQParam[gParamIndex].v = gParamValue;
-        gAudioEffect->setParameter(&gHPEQParam[gParamIndex].param);
-        gAudioEffect->getParameter(&gHPEQParam[gParamIndex].param);
-        LOG("TrebleBass: Status is %d -> %s\n", gParamValue, HPEQStatusstr[gHPEQParam[gParamIndex].v]);
+        gTrebleBassParam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gTrebleBassParam[gParamIndex].param);
+        gAudioEffect->getParameter(&gTrebleBassParam[gParamIndex].param);
+        LOG("TrebleBass: Status is %d -> %s\n", gParamValue, TREBASSStatusstr[gTrebleBassParam[gParamIndex].v]);
         return 0;
     default:
         LOG("TrebleBass: ParamIndex = %d invalid\n", gParamIndex);
         return -1;
     }
 }
-*/
+
 static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBand[5])
 {
     switch (gParamIndex) {
@@ -527,7 +638,7 @@ static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPar
         LOG("HPEQ: mode is %d -> %d\n", gParamValue, gHPEQParam[gParamIndex].v);
         return 0;
     case HPEQ_PARAM_EFFECT_CUSTOM:
-        for (int i =0; i<5;i++) {
+        for (int i = 0; i < 5; i++) {
            if (gParamBand[i]< -10 || gParamBand[i] >10) {
               LOG("Hpeq:gParamBand[%d] = %d invalid\n",i, gParamBand[i]);
               return -1;
@@ -561,7 +672,7 @@ static int Avl_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPara
         LOG("Avl: Status is %d -> %s\n", gParamValue, AvlStatusstr[gAvlParam[gParamIndex].v]);
         return 0;
     case AVL_PARAM_PEAK_LEVEL:
-         if (gParamValue < -30 || gParamValue > 0) {
+         if (gParamValue < -40 || gParamValue > 0) {
             LOG("AVL: Status gParamValue = %d invalid\n", gParamValue);
             return -1;
         }
@@ -571,7 +682,7 @@ static int Avl_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPara
         LOG("Avl: peak_level is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
         return 0;
     case AVL_PARAM_DYNAMIC_THRESHOLD:
-         if (gParamValue < -60 || gParamValue > 0) {
+         if (gParamValue < -80 || gParamValue > 0) {
             LOG("AVL: dynamic_threshold = %d invalid\n", gParamValue);
             return -1;
         }
@@ -585,13 +696,13 @@ static int Avl_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPara
             LOG("AVL: noise_threshold = %d invalid\n", gParamValue);
             return -1;
         }
-         gAvlParam[gParamIndex].v = gParamValue;
+         gAvlParam[gParamIndex].v = gParamValue * 48;
          gAudioEffect->setParameter(&gAvlParam[gParamIndex].param);
          gAudioEffect->getParameter(&gAvlParam[gParamIndex].param);
          LOG("Avl: noise_threshold is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
          return 0;
     case AVL_PARAM_RESPONSE_TIME:
-         if (gParamValue < 128 || gParamValue > 2048) {
+         if (gParamValue < 20 || gParamValue > 2000) {
             LOG("AVL: Status gParamValue = %d invalid\n", gParamValue);
             return -1;
         }
@@ -601,7 +712,7 @@ static int Avl_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPara
         LOG("Avl: Status is %d -> %d\n", gParamValue, gAvlParam[gParamIndex].v);
         return 0;
     case AVL_PARAM_RELEASE_TIME:
-         if (gParamValue < 2 || gParamValue > 8) {
+         if (gParamValue < 20 || gParamValue > 2000) {
             LOG("AVL: Status gParamValue = %d invalid\n", gParamValue);
             return -1;
         }
@@ -691,6 +802,10 @@ int main(int argc,char **argv)
     LOG("ParamValue: 0 ~ 100\n");
     LOG("ParamIndex: 1 -> Enable\n");
     LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 4 -> Usb_Balance\n");
+    LOG("ParamValue: 0 ~ 100\n");
+    LOG("ParamIndex: 5 -> Bt_Banlance\n");
+    LOG("ParamValue: 0 ~ 100\n");
     LOG("****************************************************************************\n\n");
 
     LOG("********************************TruSurround*********************************\n");
@@ -753,15 +868,15 @@ int main(int argc,char **argv)
     LOG("ParamIndex: 0 -> Enable\n");
     LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
     LOG("ParamIndex: 1 -> Peak Level\n");
-    LOG("ParamScale: -30.0 ~ 0.0\n");
+    LOG("ParamScale: -40.0 ~ 0.0\n");
     LOG("ParamIndex: 2 -> Dynamic Threshold\n");
-    LOG("ParamScale: 0 ~ -60\n");
+    LOG("ParamScale: 0 ~ -80\n");
     LOG("ParamIndex: 3 -> Noise Threshold\n");
     LOG("ParamScale: -NAN ~ -10\n");
     LOG("ParamIndex: 4 -> Response Time\n");
-    LOG("ParamValue: 128 ~ 2048\n");
+    LOG("ParamValue: 20 ~ 2000\n");
     LOG("ParamIndex: 5 -> Release Time\n");
-    LOG("ParamValue: 2 ~ 8\n");
+    LOG("ParamValue: 20 ~ 2000\n");
     LOG("ParamIndex: 6 -> Source In\n");
     LOG("ParamValue: 0 -> DTV  1 -> ATV   2 -> AV  3 -> HDMI   4 -> SPDIF  5->REMOTE_SUBMIX  6->WIRED_HEADSET\n");
     LOG("****************************************************************************\n\n");
@@ -782,7 +897,7 @@ int main(int argc,char **argv)
             sscanf(argv[6], "%d", &gParamBand[3]);
             sscanf(argv[7], "%d", &gParamBand[4]);
             } else
-            sscanf(argv[3], "%d", &gParamValue);
+               sscanf(argv[3], "%d", &gParamValue);
     }
     if (gEffectIndex >= (int)(sizeof(gEffectStr)/sizeof(gEffectStr[0]))) {
         LOG("Effect is not exist\n");
@@ -818,13 +933,23 @@ int main(int argc,char **argv)
             if (SRS_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue, gParamScale) < 0)
                 LOG("TruSurround Test failed\n");
             break;
+        case EFFECT_TREBLEBASS:
+            ret = create_audio_effect(&gAudioEffect[EFFECT_TREBLEBASS], name16[EFFECT_TREBLEBASS], EFFECT_TREBLEBASS);
+            if (ret < 0) {
+                LOG("create TrebleBass effect failed\n");
+                goto Error;
+            }
+            //------------set TrebleBass parameters------------------------------------
+            if (TrebleBass_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0)
+                LOG("TrebleBass Test failed\n");
+            break;
         case EFFECT_HPEQ:
             ret = create_audio_effect(&gAudioEffect[EFFECT_HPEQ], name16[EFFECT_HPEQ], EFFECT_HPEQ);
             if (ret < 0) {
                 LOG("create TrebleBass effect failed\n");
                 goto Error;
             }
-            //------------set TrebleBass parameters------------------------------------
+            //------------set HPEQ parameters------------------------------------------
             if (HPEQ_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue,gParamBand) < 0)
                 LOG("HPEQ Test failed\n");
             break;
@@ -834,7 +959,7 @@ int main(int argc,char **argv)
                 LOG("create AVl effect failed\n");
                 goto Error;
             }
-            //------------set Avl parameters------------------------------------
+            //------------set Avl parameters-------------------------------------------
             if (Avl_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0)
                 LOG("Avl Test failed\n");
             break;

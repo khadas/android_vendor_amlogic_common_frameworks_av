@@ -13,7 +13,9 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libutils \
     libaudioclient \
-    libmedia
+    libmedia \
+    libmedia_helper \
+    libmediaplayerservice \
 
 include $(BUILD_EXECUTABLE)
 
