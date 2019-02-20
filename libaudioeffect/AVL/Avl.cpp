@@ -161,6 +161,7 @@ int Avl_parse_mode_config(AvlContext *pContext, int mode_num, int band_num, cons
 
     if (data->usr_cfg == NULL) {
         data->usr_cfg = (int *)calloc(mode_num * band_num, sizeof(int));
+        data->usr_cfg = (int *)calloc(mode_num * band_num, sizeof(int));
         if (!data->usr_cfg) {
             ALOGE("%s: alloc failed", __FUNCTION__);
             return -EINVAL;
@@ -249,11 +250,11 @@ int Avl_init(AvlContext *pContext)
     pContext->config.outputCfg.bufferProvider.cookie = NULL;
     pContext->config.outputCfg.mask = EFFECT_CONFIG_ALL;
 
-    pContext->gAvldata.tbcfg.dynamic_threshold = -24;
-    pContext->gAvldata.tbcfg.noise_threshold = -40;
-    pContext->gAvldata.tbcfg.peak_level = -18;
-    pContext->gAvldata.tbcfg.response_time = 960;
-    pContext->gAvldata.tbcfg.release_time = 200;
+    pContext->gAvldata.tbcfg.dynamic_threshold=-24;
+    pContext->gAvldata.tbcfg.noise_threshold=-40;
+    pContext->gAvldata.tbcfg.peak_level=-18;
+    pContext->gAvldata.tbcfg.response_time=512;
+    pContext->gAvldata.tbcfg.release_time=2;
 
     DeleteAmlAGC(data->agc);
     if (data->agc == NULL) {
@@ -303,25 +304,25 @@ int Avl_setParameter(AvlContext *pContext, void *pParam, void *pValue)
     switch (param) {
        case AVL_PARAM_PEAK_LEVEL:
             value = *(int32_t *)pValue;
-            tbcfg->peak_level = (float)value;
+            tbcfg->peak_level=(float)value;
             SetAmlAGC(data->agc,tbcfg->peak_level, tbcfg->dynamic_threshold, tbcfg->noise_threshold, tbcfg->response_time,tbcfg->release_time);
             ALOGD("%s: set peak_level -> %f ", __FUNCTION__, tbcfg->peak_level);
             break;
        case AVL_PARAM_DYNAMIC_THRESHOLD:
             value = *(int32_t *)pValue;
-            tbcfg->dynamic_threshold = (float)value;
+            tbcfg->dynamic_threshold=(float)value;
             SetAmlAGC(data->agc,tbcfg->peak_level, tbcfg->dynamic_threshold, tbcfg->noise_threshold, tbcfg->response_time,tbcfg->release_time);
             ALOGD("%s: set dynamic_threshold -> %f ", __FUNCTION__, tbcfg->dynamic_threshold);
             break;
        case AVL_PARAM_NOISE_THRESHOLD :
             value = *(int32_t *)pValue;
-            tbcfg->noise_threshold = (float)value;
+            tbcfg->noise_threshold=(float)value;
             SetAmlAGC(data->agc,tbcfg->peak_level, tbcfg->dynamic_threshold, tbcfg->noise_threshold, tbcfg->response_time,tbcfg->release_time);
             ALOGD("%s: set noise_threshold -> %f ", __FUNCTION__, tbcfg->noise_threshold);
             break;
        case AVL_PARAM_RESPONSE_TIME:
             value = *(int32_t *)pValue;
-            tbcfg->response_time = value;
+            tbcfg->response_time=value;
             SetAmlAGC(data->agc,tbcfg->peak_level, tbcfg->dynamic_threshold, tbcfg->noise_threshold, tbcfg->response_time,tbcfg->release_time);
             ALOGD("%s: set response_time-> %d ", __FUNCTION__, tbcfg->response_time);
             break;
@@ -332,7 +333,7 @@ int Avl_setParameter(AvlContext *pContext, void *pParam, void *pValue)
             break;
        case AVL_PARAM_RELEASE_TIME:
             value = *(int32_t *)pValue;
-            tbcfg->release_time = value;
+            tbcfg->release_time=value;
             SetAmlAGC(data->agc,tbcfg->peak_level, tbcfg->dynamic_threshold, tbcfg->noise_threshold, tbcfg->response_time,tbcfg->release_time);
             ALOGD("%s: set release_time-> %d ", __FUNCTION__, tbcfg->release_time);
             break;
@@ -347,11 +348,11 @@ int Avl_setParameter(AvlContext *pContext, void *pParam, void *pValue)
             for (i = 0; i < data->band_num; i++) {
             ALOGD("%s: Set band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[value * data->band_num + i]);
             }
-            tbcfg->peak_level = data->usr_cfg[value * data->band_num];
-            tbcfg->dynamic_threshold = data->usr_cfg[value * data->band_num + 1];
-            tbcfg->noise_threshold = data->usr_cfg[value * data->band_num + 2];
-            tbcfg->response_time = data->usr_cfg[value * data->band_num + 3];
-            tbcfg->release_time = data->usr_cfg[value * data->band_num + 4];
+            tbcfg->peak_level =data->usr_cfg[value * data->band_num];
+            tbcfg->dynamic_threshold =data->usr_cfg[value * data->band_num + 1];
+            tbcfg->noise_threshold =data->usr_cfg[value * data->band_num + 2];
+            tbcfg->response_time =data->usr_cfg[value * data->band_num + 3];
+            tbcfg->release_time =data->usr_cfg[value * data->band_num + 4];
             SetAmlAGC(data->agc,tbcfg->peak_level, tbcfg->dynamic_threshold, tbcfg->noise_threshold, tbcfg->response_time,tbcfg->release_time);
             break;
        default:
@@ -365,8 +366,8 @@ int Avl_getParameter(AvlContext*pContext, void *pParam, size_t *pValueSize, void
 {
     int32_t param = *(int32_t *)pParam;
     int32_t value;
-    Avldata *data = &pContext->gAvldata;
-    Avlcfg *tbcfg = &data->tbcfg;
+    Avldata *data=&pContext->gAvldata;
+    Avlcfg *tbcfg=&data->tbcfg;
 
     switch (param) {
     case AVL_PARAM_PEAK_LEVEL:
@@ -374,7 +375,7 @@ int Avl_getParameter(AvlContext*pContext, void *pParam, size_t *pValueSize, void
             *pValueSize = 0;
             return -EINVAL;
         }
-        *(int*)pValue = (int)tbcfg->peak_level;
+        *(int*)pValue=(int)tbcfg->peak_level;
         ALOGD("%s: Get peak_level -> %f ", __FUNCTION__, tbcfg->peak_level);
         break;
 
@@ -383,7 +384,7 @@ int Avl_getParameter(AvlContext*pContext, void *pParam, size_t *pValueSize, void
              *pValueSize = 0;
                  return -EINVAL;
            }
-            *(float*)pValue = tbcfg->dynamic_threshold;
+            *(float*)pValue=tbcfg->dynamic_threshold;
             ALOGD("%s: Get dynamic_threshold -> %f ", __FUNCTION__, tbcfg->dynamic_threshold);
             break;
 
@@ -392,7 +393,7 @@ int Avl_getParameter(AvlContext*pContext, void *pParam, size_t *pValueSize, void
              *pValueSize = 0;
            return -EINVAL;
         }
-        *(float*)pValue = tbcfg->noise_threshold;
+        *(float*)pValue=tbcfg->noise_threshold;
         ALOGD("%s: Get noise_threshold -> %f ", __FUNCTION__, tbcfg->noise_threshold);
         break;
 
@@ -440,13 +441,9 @@ int Avl_getParameter(AvlContext*pContext, void *pParam, size_t *pValueSize, void
 
 int Avl_release(AvlContext *pContext)
 {
-    Avldata *data = &pContext->gAvldata;
+    Avldata *data=&pContext->gAvldata;
     DeleteAmlAGC(data->agc);
-    (data->agc)->agc_enable = 0;
-    if (data->usr_cfg != NULL) {
-      free(data->usr_cfg);
-      data->usr_cfg = NULL;
-    }
+    (data->agc)->agc_enable=0;
     return 0;
 }
 
@@ -472,7 +469,7 @@ int Avl_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t *
     int16_t *in  = (int16_t *)inBuffer->raw;
     int16_t *out = (int16_t *)outBuffer->raw;
     Avldata*data = &pContext->gAvldata;
-     (data->agc)->agc_enable = 1;
+     (data->agc)->agc_enable=1;
     if (!data->enable) {
         for (size_t i = 0; i < inBuffer->frameCount; i++) {
             *out++ = *in++;
@@ -480,17 +477,6 @@ int Avl_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t *
         }
     } else {
      DoAmlAGC(data->agc, (void *)in, (inBuffer->frameCount)<<1);
-#if 0
-     FILE *dump_fp = NULL;
-     dump_fp = fopen("/data/audio_hal/audio_in.pcm", "a+");
-     if (dump_fp != NULL) {
-        fwrite((void*)in, inBuffer->frameCount*4, 1, dump_fp);
-        fclose(dump_fp);
-        } else {
-        ALOGW("[Error] Can't write to /data/dump_in.pcm");
-        }
-#endif
-
     }
      return 0;
 }
