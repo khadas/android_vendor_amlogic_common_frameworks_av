@@ -146,6 +146,171 @@ const char *SRSSurroundstr[] = {"Disable", "Enable"};
 const char *SRSDialogClarityModestr[] = {"OFF", "LOW", "HIGH"};
 const char *SRSSurroundModestr[] = {"ON", "OFF"};
 
+//-------------Virtualx parameter--------------------------
+typedef struct Virtualx_param_s {
+    effect_param_t param;
+    uint32_t command;
+    union {
+        int32_t v;
+        float f;
+    };
+} Virtualx_param_t;
+typedef enum {
+    VIRTUALX_PARAM_ENABLE,
+    VIRTUALX_PARAM_DIALOGCLARTY_MODE,
+    VIRTUALX_PARAM_SURROUND_MODE,
+    DTS_PARAM_MBHL_ENABLE_I32,
+    DTS_PARAM_MBHL_BYPASS_GAIN_I32,
+    DTS_PARAM_MBHL_REFERENCE_LEVEL_I32,
+    DTS_PARAM_MBHL_VOLUME_I32,
+    DTS_PARAM_MBHL_VOLUME_STEP_I32,
+    DTS_PARAM_MBHL_BALANCE_STEP_I32,
+    DTS_PARAM_MBHL_OUTPUT_GAIN_I32,
+    DTS_PARAM_MBHL_MODE_I32,
+    DTS_PARAM_MBHL_PROCESS_DISCARD_I32,
+    DTS_PARAM_MBHL_CROSS_LOW_I32,
+    DTS_PARAM_MBHL_CROSS_MID_I32,
+    DTS_PARAM_MBHL_COMP_ATTACK_I32,
+    DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32,
+    DTS_PARAM_MBHL_COMP_LOW_RATIO_I32,
+    DTS_PARAM_MBHL_COMP_LOW_THRESH_I32,
+    DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32,
+    DTS_PARAM_MBHL_COMP_MID_RELEASE_I32,
+    DTS_PARAM_MBHL_COMP_MID_RATIO_I32,
+    DTS_PARAM_MBHL_COMP_MID_THRESH_I32,
+    DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32,
+    DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32,
+    DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32,
+    DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32,
+    DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32,
+    DTS_PARAM_MBHL_BOOST_I32,
+    DTS_PARAM_MBHL_THRESHOLD_I32,
+    DTS_PARAM_MBHL_SLOW_OFFSET_I32,
+    DTS_PARAM_MBHL_FAST_ATTACK_I32,
+    DTS_PARAM_MBHL_FAST_RELEASE_I32,
+    DTS_PARAM_MBHL_SLOW_ATTACK_I32,
+    DTS_PARAM_MBHL_SLOW_RELEASE_I32,
+    DTS_PARAM_MBHL_DELAY_I32,
+    DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32,
+    DTS_PARAM_TBHDX_ENABLE_I32,
+    DTS_PARAM_TBHDX_MONO_MODE_I32,
+    DTS_PARAM_TBHDX_MAXGAIN_I32,
+    DTS_PARAM_TBHDX_SPKSIZE_I32,
+    DTS_PARAM_TBHDX_HP_ENABLE_I32,
+    DTS_PARAM_TBHDX_TEMP_GAIN_I32,
+    DTS_PARAM_TBHDX_PROCESS_DISCARD_I32,
+    DTS_PARAM_TBHDX_HPORDER_I32,
+    DTS_PARAM_VX_ENABLE_I32,
+    DTS_PARAM_VX_INPUT_MODE_I32,
+    DTS_PARAM_VX_OUTPUT_MODE_I32,
+    DTS_PARAM_VX_HEADROOM_GAIN_I32,
+    DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32,
+    DTS_PARAM_VX_REFERENCE_LEVEL_I32,
+    DTS_PARAM_TSX_ENABLE_I32,
+    DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32,
+    DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32,
+    DTS_PARAM_TSX_LPR_GAIN_I32,
+    DTS_PARAM_TSX_CENTER_GAIN_I32,
+    DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32,
+    DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32,
+    DTS_PARAM_TSX_PROCESS_DISCARD_I32,
+    DTS_PARAM_TSX_HEIGHT_DISCARD_I32,
+    DTS_PARAM_TSX_FRNT_CTRL_I32,
+    DTS_PARAM_TSX_SRND_CTRL_I32,
+    DTS_PARAM_VX_DC_ENABLE_I32,
+    DTS_PARAM_VX_DC_CONTROL_I32,
+    DTS_PARAM_VX_DEF_ENABLE_I32,
+    DTS_PARAM_VX_DEF_CONTROL_I32,
+    DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32,
+    DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32,
+    DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32,
+    DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32,
+    DTS_PARAM_TBHDX_APP_SPKSIZE_I32,
+    DTS_PARAM_TBHDX_APP_HPRATIO_F32,
+    DTS_PARAM_TBHDX_APP_EXTBASS_F32,
+    DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32,
+    DTS_PARAM_MBHL_APP_FRT_MIDCROSS_F32,
+
+}Virtualx_params;
+
+Virtualx_param_t gVirtualxParam[] = {
+    {{0, 4, 4}, VIRTUALX_PARAM_ENABLE, {1}},
+    {{0, 4, 4}, VIRTUALX_PARAM_DIALOGCLARTY_MODE, {1}},
+    {{0, 4, 4}, VIRTUALX_PARAM_SURROUND_MODE, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_ENABLE_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_BYPASS_GAIN_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_REFERENCE_LEVEL_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_VOLUME_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_VOLUME_STEP_I32, {100}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_BALANCE_STEP_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_OUTPUT_GAIN_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_MODE_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_PROCESS_DISCARD_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_CROSS_LOW_I32, {7}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_CROSS_MID_I32, {15}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_ATTACK_I32, {5}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32, {250}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_LOW_RATIO_I32, {4}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_LOW_THRESH_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_MID_RELEASE_I32, {250}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_MID_RATIO_I32, {4}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_MID_THRESH_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32, {250}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32, {4}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_BOOST_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_THRESHOLD_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_SLOW_OFFSET_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_FAST_ATTACK_I32, {5}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_FAST_RELEASE_I32, {50}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_SLOW_ATTACK_I32, {500}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_SLOW_RELEASE_I32, {500}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_DELAY_I32, {8}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32, {20}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_ENABLE_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_MONO_MODE_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_MAXGAIN_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_SPKSIZE_I32, {2}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_HP_ENABLE_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_TEMP_GAIN_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_PROCESS_DISCARD_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_HPORDER_I32, {4}},
+    {{0, 4, 4}, DTS_PARAM_VX_ENABLE_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_VX_INPUT_MODE_I32, {4}},
+    {{0, 4, 4}, DTS_PARAM_VX_OUTPUT_MODE_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_VX_HEADROOM_GAIN_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_VX_REFERENCE_LEVEL_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TSX_ENABLE_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TSX_LPR_GAIN_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TSX_CENTER_GAIN_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TSX_PROCESS_DISCARD_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TSX_HEIGHT_DISCARD_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_TSX_FRNT_CTRL_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_TSX_SRND_CTRL_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_VX_DC_ENABLE_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_VX_DC_CONTROL_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_VX_DEF_ENABLE_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_VX_DEF_CONTROL_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32, {1}},
+    {{0, 4, 4}, DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32, {-24}},
+    {{0, 4, 4}, DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32, {0}},
+    {{0, 4, 4}, DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32,{0}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_APP_SPKSIZE_I32,{0}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_APP_HPRATIO_F32,{0}},
+    {{0, 4, 4}, DTS_PARAM_TBHDX_APP_EXTBASS_F32,{0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32,{0}},
+    {{0, 4, 4}, DTS_PARAM_MBHL_APP_FRT_MIDCROSS_F32,{0}},
+
+};
+const char *VXStatusstr[] = {"Disable", "Enable"};
 
 //-------------TrebleBass parameters--------------------------
 typedef struct TrebleBass_param_s {
@@ -261,6 +426,7 @@ typedef enum {
     EFFECT_HPEQ,
     EFFECT_AVL,
     EFFECT_GEQ,
+    EFFECT_VIRTUALX,
     EFFECT_MAX,
 } EFFECT_params;
 
@@ -271,6 +437,7 @@ effect_uuid_t gEffectStr[] = {
     {0x049754aa, 0xc4cf, 0x439f, 0x897e, {0x37, 0xdd, 0x0c, 0x38, 0x11, 0x20}}, // 3:Hpeq
     {0x08246a2a, 0xb2d3, 0x4621, 0xb804, {0x42, 0xc9, 0xb4, 0x78, 0xeb, 0x9d}}, // 4:Avl
     {0x2e2a5fa6, 0xcae8, 0x45f5, 0xbb70, {0xa2, 0x9c, 0x1f, 0x30, 0x74, 0xb2}}, // 5:Geq
+    {0x61821587, 0xce3c, 0x4aac, 0x9122, {0x86, 0xd8, 0x74, 0xea, 0x1f, 0xb1}}, // 6:Virtualx
 };
 
 static inline float DbToAmpl(float decibels)
@@ -641,6 +808,705 @@ static int TrebleBass_effect_func(AudioEffect* gAudioEffect, int gParamIndex, in
     }
 }
 
+static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue,float gParamScale)
+{
+    int rc = 0;
+    switch (gParamIndex) {
+        case VIRTUALX_PARAM_ENABLE:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: Status gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            if (!gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param))
+                LOG("=================successful\n");
+            else
+                LOG("=====================failed\n");
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("Virtualx: Status is %d -> %s\n", gParamValue, VXStatusstr[gVirtualxParam[gParamIndex].v]);
+            return 0;
+       case DTS_PARAM_MBHL_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: MBHL ENABLE gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_BYPASS_GAIN_I32:
+            if (gParamScale < 0 || gParamScale > 1.0) {
+                LOG("Vritualx: mbhl bypass gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl bypassgain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_REFERENCE_LEVEL_I32:
+            if (gParamScale < 0.0009 || gParamScale > 1.0) {
+                LOG("Vritualx: mbhl reference level gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl reference level is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_VOLUME_I32:
+            if (gParamScale < 0 || gParamScale > 1.0) {
+                LOG("Vritualx: mbhl volume gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl volume is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_VOLUME_STEP_I32:
+            if (gParamValue < 0 || gParamValue > 100) {
+                LOG("Vritualx: mbhl volumestep gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl volume step is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_BALANCE_STEP_I32:
+            if (gParamValue < -10 || gParamValue > 10) {
+                LOG("Vritualx: mbhl banlance step gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl balance step is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_OUTPUT_GAIN_I32:
+            if (gParamScale < 0 || gParamScale > 1.0) {
+                LOG("Vritualx: mbhl output gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+           // gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl output gain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_BOOST_I32:
+            if (gParamScale < 0.001 || gParamScale > 1000) {
+                LOG("Vritualx: mbhl boost  gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl boost is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_THRESHOLD_I32:
+            if (gParamScale < 0.064 || gParamScale > 1.0) {
+                LOG("Vritualx: mbhl threshold  gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl threshold is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_SLOW_OFFSET_I32:
+            if (gParamScale < 0.3170 || gParamScale > 3.1619) {
+                LOG("Vritualx: mbhl slow offset  gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl slow offset is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_FAST_ATTACK_I32:
+            if (gParamScale < 0 || gParamScale > 10) {
+                LOG("Vritualx: mbhl fast attack  gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl fast attack is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_FAST_RELEASE_I32:
+            if (gParamValue < 10 || gParamValue > 500) {
+                LOG("Vritualx: mbhl fast release gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl fast release is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_SLOW_ATTACK_I32:
+            if (gParamValue < 100 || gParamValue > 1000) {
+                LOG("Vritualx: mbhl slow attack gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl slow attack is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_SLOW_RELEASE_I32:
+            if (gParamValue < 100 || gParamValue > 2000) {
+                LOG("Vritualx: mbhl slow release gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl slow release is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_DELAY_I32:
+            if (gParamValue < 1 || gParamValue > 16) {
+                LOG("Vritualx: mbhl delay gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl delay is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32:
+            if (gParamValue < 5 || gParamValue > 500) {
+                LOG("Vritualx: mbhl envelope freq gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl envelope freq is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_MODE_I32:
+            if (gParamValue < 0 || gParamValue > 4) {
+                LOG("Vritualx: mbhl mode gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl mode is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_PROCESS_DISCARD_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: mbhl process discard gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl process discard is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_CROSS_LOW_I32:
+            if (gParamValue < 0 || gParamValue > 20) {
+                LOG("Vritualx: mbhl cross low gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl cross low  is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_CROSS_MID_I32:
+            if (gParamValue < 0 || gParamValue > 20) {
+                LOG("Vritualx: mbhl cross mid gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl cross mid is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_ATTACK_I32:
+            if (gParamValue < 0 || gParamValue > 100) {
+                LOG("Vritualx: mbhl compressor attack time gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor attack time is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32:
+            if (gParamValue < 50 || gParamValue > 2000) {
+                LOG("Vritualx: mbhl compressor low release time gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor low release time is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_LOW_RATIO_I32:
+            if (gParamScale < 1.0 || gParamScale > 20.0) {
+                LOG("Vritualx: mbhl compressor low ratio gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor low ratio is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_LOW_THRESH_I32:
+            if (gParamScale < 0.0640 || gParamScale > 15.8479) {
+                LOG("Vritualx: mbhl compressor low threshold gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor low threshold is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32:
+            if (gParamScale < 0.0640 || gParamScale > 15.8479) {
+                LOG("Vritualx: mbhl compressor low makeup gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor low makeup is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_MID_RELEASE_I32:
+            if (gParamValue < 50 || gParamValue > 2000) {
+                LOG("Vritualx: mbhl compressor mid release time gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor mid release time is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_MID_RATIO_I32:
+             if (gParamScale < 1.0 || gParamScale > 20.0) {
+                LOG("Vritualx: mbhl compressor mid ratio gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor mid ratio is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_MID_THRESH_I32:
+            if (gParamScale < 0.0640 || gParamScale > 15.8479) {
+                LOG("Vritualx: mbhl compressor mid threshold gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor mid threshold is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32:
+             if (gParamScale < 0.0640 || gParamScale > 15.8479) {
+                LOG("Vritualx: mbhl compressor mid makeup gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor mid makeup is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32:
+            if (gParamValue < 50 || gParamValue > 2000) {
+                LOG("Vritualx: mbhl compressor high release time gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor high release time is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32:
+            if (gParamScale < 1.0 || gParamScale > 20.0) {
+                LOG("Vritualx: mbhl compressor high ratio gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor high ratio is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32:
+            if (gParamScale < 0.0640 || gParamScale > 15.8479) {
+                LOG("Vritualx: mbhl compressor high threshold gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor high threshold is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32:
+             if (gParamScale < 0.0640 || gParamScale > 15.8479) {
+                LOG("Vritualx: mbhl compressor high makeup gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("mbhl compressor high makeup is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TBHDX_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tbhdx enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TBHDX_MONO_MODE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tbhdx mono mode gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx mono mode is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TBHDX_SPKSIZE_I32:
+            if (gParamValue < 0 || gParamValue > 12) {
+                LOG("Vritualx: tbhdx spksize gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx spksize is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TBHDX_TEMP_GAIN_I32:
+            if (gParamScale < 0.0 || gParamScale > 1.0) {
+                LOG("Vritualx: tbhdx temp gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx temp gain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TBHDX_MAXGAIN_I32:
+            if (gParamScale < 0.0 || gParamScale > 1.0) {
+                LOG("Vritualx: tbhdx max gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx max gain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TBHDX_PROCESS_DISCARD_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tbhdx process discard gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+           //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx process discard is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TBHDX_HPORDER_I32:
+            if (gParamValue < 0 || gParamValue > 8) {
+                LOG("Vritualx: tbhdx high pass filter order gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx high pass filter order is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TBHDX_HP_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tbhdx high pass enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tbhdx high pass enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_VX_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: vxlib1 enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("vxlib1 enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_VX_INPUT_MODE_I32:
+            if (gParamValue < 0 || gParamValue > 4) {
+                LOG("Vritualx: vxlib1 input mode gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("vxlib1 input mode is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_VX_HEADROOM_GAIN_I32:
+            if (gParamScale < 0.1250 || gParamScale > 1.0) {
+                LOG("Vritualx: vxlib1 headroom gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("vxlib1 headroom gain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32:
+            if (gParamScale < 0.5 || gParamScale > 4.0) {
+                LOG("Vritualx: vxlib1 output gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("vxlib1 output gain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TSX_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("vxlib1 tsx enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx passive matrix upmixer enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("vxlib1 tsx passive matrix upmixer enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx horizontal Effect gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("vxlib1 tsx horizontal Effect is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TSX_FRNT_CTRL_I32:
+            if (gParamScale < 0.5 || gParamScale > 2.0) {
+                LOG("Vritualx: tsx frnt ctrl gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx frnt ctrl is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TSX_SRND_CTRL_I32:
+            if (gParamScale < 0.5 || gParamScale > 2.0) {
+                LOG("Vritualx: tsx srnd ctrl gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx srnd ctrl is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TSX_LPR_GAIN_I32:
+             if (gParamScale < 0.0 || gParamScale > 2.0) {
+                LOG("Vritualx: tsx lprtoctr mix gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx lprtoctr mix gain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32:
+             if (gParamScale < 0.5 || gParamScale > 2.0) {
+                LOG("Vritualx: tsx heightmix coeff gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx heightmix coeff is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TSX_CENTER_GAIN_I32:
+             if (gParamScale < 1.0 || gParamScale > 2.0) {
+                LOG("Vritualx: tsx center gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx center gain is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TSX_HEIGHT_DISCARD_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx height discard gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx height discard is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TSX_PROCESS_DISCARD_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx process discard gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx process discard is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx height upmix enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx height upmix enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_VX_DC_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx dc enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx dc enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_VX_DC_CONTROL_I32:
+             if (gParamScale < 0.0 || gParamScale > 1.0) {
+                LOG("Vritualx: tsx dc level gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx dc level is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_VX_DEF_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: tsx def enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx def enable is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_VX_DEF_CONTROL_I32:
+             if (gParamScale < 0.0 || gParamScale > 1.0) {
+                LOG("Vritualx: tsx def level gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("tsx def level is %f \n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("loudness control = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("loudness control is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32:
+            if (gParamValue < -40 || gParamValue > 0) {
+                LOG("loudness control target = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("loudness control target is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32:
+            if (gParamValue < 0 || gParamValue > 2) {
+                LOG("loudness control preset = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("loudness control preset is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TBHDX_APP_SPKSIZE_I32:
+            if (gParamValue < 40 || gParamValue > 600) {
+                LOG("app spksize = %d invaild\n",gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("app spksize %d\n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_TBHDX_APP_HPRATIO_F32:
+            if (gParamScale < 0.0 || gParamScale > 1.0) {
+                LOG("app hpratio = %f invaild\n",gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("app hpratio is %f\n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_TBHDX_APP_EXTBASS_F32:
+            if (gParamScale < 0.0 || gParamScale > 1.0) {
+                LOG("app ettbass = %f invaild\n",gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("app ettbass is %f\n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32:
+            if (gParamScale < 40 || gParamScale > 8000.0) {
+                LOG("app low freq = %f invaild\n",gParamScale);
+                return -1;
+            }
+             gVirtualxParam[gParamIndex].f = gParamScale;
+            rc =gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("rc is %d\n",rc);
+            LOG("app low freq is %f\n",gVirtualxParam[gParamIndex].f);
+            return 0;
+        case DTS_PARAM_MBHL_APP_FRT_MIDCROSS_F32:
+            if (gParamScale < 40.0 || gParamScale > 8000.0) {
+                LOG("app mid freq = %f invaild\n",gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("app mid freq is %f\n",gVirtualxParam[gParamIndex].f);
+            return 0;
+    default:
+        LOG("Virtualx: ParamIndex = %d invalid\n", gParamIndex);
+        return -1;
+    }
+}
+
 static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBand[5])
 {
     switch (gParamIndex) {
@@ -864,15 +1730,14 @@ int main(int argc,char **argv)
     int gEffectIndex = 0;
     int gParamIndex = 0;
     int gParamValue = 0;
-    float gParamScale = 0.0;
+    float gParamScale = 0.0f;
     signed char gParamBand[5]={0};
     signed char gParamBands[9]={0};
     status_t status = NO_ERROR;
     String16 name16[EFFECT_MAX] = {String16("AudioEffectEQTest"), String16("AudioEffectSRSTest"), String16("AudioEffectHPEQTest"),
-        String16("AudioEffectAVLTest"), String16("AudioEffectGEQTest")};
+        String16("AudioEffectAVLTest"), String16("AudioEffectGEQTest"),String16("AudioEffectVirtualxTest")};
     AudioEffect* gAudioEffect[EFFECT_MAX] = {0};
     audio_session_t gSessionId = AUDIO_SESSION_OUTPUT_MIX;
-
     LOG("**********************************Balance***********************************\n");
     LOG("EffectIndex: 0\n");
     LOG("ParamIndex: 0 -> Level\n");
@@ -966,8 +1831,150 @@ int main(int argc,char **argv)
     LOG("ParamValue: 0 -> Standard  1 -> Music   2 -> news  3 -> movie   4 -> game   5->user\n");
     LOG("ParamIndex: 2 -> custom\n");
     LOG("ParamValue: -10 ~10 \n");
+    LOG("****************************************************************************\n\n");
 
-   if (argc != 4 && argc != 12 && argc != 8) {
+    LOG("*********************************Virtualx*********************************\n");
+    LOG("EffectIndex: 6\n");
+    LOG("ParamIndex: 0 -> Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 3 -> Mbhl Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 4 -> Mbhl Bypass Gain\n");
+    LOG("ParamScale: 0.0 ~ 1.0\n");
+    LOG("ParamIndex: 5 -> Mbhl Reference Level\n");
+    LOG("ParamScale: 0.0009 ~ 1.0\n");
+    LOG("ParamIndex: 6 -> Mbhl Volume\n");
+    LOG("ParamScale: 0.0 ~ 1.0\n");
+    LOG("ParamIndex: 7 -> Mbhl Volume Step\n");
+    LOG("ParamValue: 0 ~ 100\n");
+    LOG("ParamIndex: 8 -> Mbhl Balance Step\n");
+    LOG("ParamValue: -10 ~ 10\n");
+    LOG("ParamIndex: 9 -> Mbhl Output Gain\n");
+    LOG("ParamScale: 0.0 ~ 1.0\n");
+    LOG("ParamIndex: 10 -> Mbhl Mode\n");
+    LOG("ParamValue: 0 ~ 4\n");
+    LOG("ParamIndex: 11 -> Mbhl process Discard\n");
+    LOG("ParamValue: 0 ~ 1\n");
+    LOG("ParamIndex: 12 -> Mbhl Cross Low\n");
+    LOG("ParamValue: 0 ~ 20\n");
+    LOG("ParamIndex: 13 -> Mbhl Cross Mid\n");
+    LOG("ParamValue: 0 ~ 20\n");
+    LOG("ParamIndex: 14 -> Mbhl Comp Attack\n");
+    LOG("ParamValue: 0 ~ 100\n");
+    LOG("ParamIndex: 15 -> Mbhl Comp Low Release\n");
+    LOG("ParamValue: 50 ~ 2000\n");
+    LOG("ParamIndex: 16 -> Mbhl Comp Low Ratio\n");
+    LOG("ParamScale: 1.0 ~ 20.0\n");
+    LOG("ParamIndex: 17 -> Mbhl Comp Low Thresh\n");
+    LOG("ParamScale: 0.0640 ~ 15.8479\n");
+    LOG("ParamIndex: 18 -> Mbhl Comp Low Makeup\n");
+    LOG("ParamScale: 0.0640 ~ 15.8479\n");
+    LOG("ParamIndex: 19 -> Mbhl Comp Mid Release\n");
+    LOG("ParamValue: 50 ~ 2000\n");
+    LOG("ParamIndex: 20 -> Mbhl Comp Mid Ratio\n");
+    LOG("ParamScale: 1.0 ~ 20.0\n");
+    LOG("ParamIndex: 21 -> Mbhl Comp Mid Thresh\n");
+    LOG("ParamScale: 0.0640 ~ 15.8479\n");
+    LOG("ParamIndex: 22 -> Mbhl Comp Mid Makeup\n");
+    LOG("ParamScale: 0.0640 ~ 15.8479\n");
+    LOG("ParamIndex: 23 -> Mbhl Comp High Release\n");
+    LOG("ParamValue: 50 ~ 2000\n");
+    LOG("ParamIndex: 24 -> Mbhl Comp High Ratio\n");
+    LOG("ParamScale: 1.0 ~ 20.0\n");
+    LOG("ParamIndex: 25 -> Mbhl Comp High Thresh\n");
+    LOG("ParamScale: 0.0640 ~ 15.8479\n");
+    LOG("ParamIndex: 26 -> Mbhl Comp High Makeup\n");
+    LOG("ParamScale: 0.0640 ~ 15.8479\n");
+    LOG("ParamIndex: 27 -> Mbhl Boost\n");
+    LOG("ParamScale: 0.001 ~ 1000\n");
+    LOG("ParamIndex: 28 -> Mbhl Threshold\n");
+    LOG("ParamScale: 0.0640 ~ 1.0\n");
+    LOG("ParamIndex: 29 -> Mbhl Slow Offset\n");
+    LOG("ParamScale: 0.317 ~ 3.1619\n");
+    LOG("ParamIndex: 30 -> Mbhl Fast Attack\n");
+    LOG("ParamScale: 0 ~ 10\n");
+    LOG("ParamIndex: 31 -> Mbhl Fast Release\n");
+    LOG("ParamValue: 10 ~ 500\n");
+    LOG("ParamIndex: 32 -> Mbhl Slow Attack\n");
+    LOG("ParamValue: 100 ~ 1000\n");
+    LOG("ParamIndex: 33 -> Mbhl Slow Release\n");
+    LOG("ParamValue: 100 ~ 2000\n");
+    LOG("ParamIndex: 34 -> Mbhl Delay\n");
+    LOG("ParamValue: 0 ~ 16\n");
+    LOG("ParamIndex: 35 -> Mbhl Envelope Freq\n");
+    LOG("ParamValue: 5 ~ 500\n");
+    LOG("ParamIndex: 36 -> TBHDX Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 37 -> TBHDX Mono Mode\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 38 -> TBHDX Max Gain\n");
+    LOG("ParamScale: 0.0 ~ 1.0\n");
+    LOG("ParamIndex: 39 -> TBHDX Spk Size\n");
+    LOG("ParamValue: 0 ~ 12\n");
+    LOG("ParamIndex: 40 -> TBHDX  HP Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 41 -> TBHDX Temp Gain\n");
+    LOG("ParamScale: 0.0 ~ 1.0\n");
+    LOG("ParamIndex: 42 -> TBHDX  Process Discard\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 43 -> TBHDX HP Order\n");
+    LOG("ParamValue: 1 ~ 8\n");
+    LOG("ParamIndex: 44 -> VX Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 45 -> VX Input Mode\n");
+    LOG("ParamValue: 0 ~ 4\n");
+    LOG("ParamIndex: 47 -> VX Head Room Gain\n");
+    LOG("ParamScale: 0.125 ~ 1.0\n");
+    LOG("ParamIndex: 48 -> VX Proc Output Gain\n");
+    LOG("ParamScale: 0.5 ~ 4.0\n");
+    LOG("ParamIndex: 50 -> TSX Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 51 -> TSX Passive Matrix Upmixer Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 52 -> TSX Height Upmixer Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 53 -> TSX Lpr Gain\n");
+    LOG("ParamScale: 0.000 ~ 2.0\n");
+    LOG("ParamIndex: 54 -> TSX Center Gain\n");
+    LOG("ParamScale: 1.0 ~ 2.0\n");
+    LOG("ParamIndex: 55 -> TSX Horiz Vir Effect Ctrl\n");
+    LOG("ParamValue: 0 -> default   1 -> mild\n");
+    LOG("ParamIndex: 56 -> TSX Height Mix Coeff\n");
+    LOG("ParamScale: 0.5 ~ 2.0\n");
+    LOG("ParamIndex: 57 -> TSX Process Discard\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 58 -> TSX Height Discard\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 59 -> TSX Frnt Ctrl\n");
+    LOG("ParamScale: 0.5 ~ 2.0\n");
+    LOG("ParamIndex: 60 -> TSX Srnd Ctrl\n");
+    LOG("ParamScale: 0.5 ~ 2.0\n");
+    LOG("ParamIndex: 61 -> VX DC Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 62 -> VX DC Control\n");
+    LOG("ParamScale: 0.5 ~ 2.0\n");
+    LOG("ParamIndex: 63 -> VX DEF Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 64 -> VX DEF Control\n");
+    LOG("ParamScale: 0.5 ~ 2.0\n");
+    LOG("ParamIndex: 65 -> Loudness Control Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 66 -> Loudness Control Target Loudness\n");
+    LOG("ParamValue: -40 ~ 0\n");
+    LOG("ParamIndex: 67 -> Loudness Control Preset\n");
+    LOG("ParamValue: 0 -> light 1 -> mid 2 -> Aggresive \n");
+    LOG("ParamIndex: 69 -> tbhd app spksize\n");
+    LOG("ParamValue 40 ~ 600 \n");
+    LOG("ParamIndex: 70 -> tbhd app hpratio\n");
+    LOG("ParamScale 0 ~ 1.0\n");
+    LOG("ParamIndex: 71 -> tbhd app extbass\n");
+    LOG("ParamScale 0 ~ 1.0\n");
+    LOG("ParamIndex: 72 -> mbhl frt lowcross\n");
+    LOG("ParamScale 40 ~ 8000\n");
+    LOG("ParamIndex: 73 -> mbhl frt midcross\n");
+    LOG("ParamScale 40 ~ 8000\n");
+    LOG("****************************************************************************\n\n");
+   if (argc != 4 && argc != 12 && argc != 8 ) {
         LOG("Usage: %s <EffectIndex> <ParamIndex> <ParamValue/ParamScale/gParamBand>\n", argv[0]);
         return -1;
    } else {
@@ -992,8 +1999,13 @@ int main(int argc,char **argv)
             sscanf(argv[9], "%d", &gParamBands[6]);
             sscanf(argv[10], "%d", &gParamBands[7]);
             sscanf(argv[11], "%d", &gParamBands[8]);
-      } else
-        sscanf(argv[3], "%d", &gParamValue);
+      } else if (gEffectIndex == 6 && ((gParamIndex >= 4 && gParamIndex <= 6) || gParamIndex == 9 || (gParamIndex >= 16 && gParamIndex <= 18)
+        ||(gParamIndex >= 20 && gParamIndex <= 22) || (gParamIndex >= 24 && gParamIndex <= 30) || gParamIndex == 38 || gParamIndex == 41
+        || gParamIndex == 47 || gParamIndex == 48 || gParamIndex == 53 || gParamIndex == 54 || gParamIndex == 56 || gParamIndex == 59 ||
+        gParamIndex == 60 || gParamIndex == 62 || gParamIndex == 64) || (gParamIndex >= 70 && gParamIndex <= 73))  {
+            sscanf(argv[3], "%f", &gParamScale);
+      }  else
+            sscanf(argv[3], "%d", &gParamValue);
     }
     if (gEffectIndex >= (int)(sizeof(gEffectStr)/sizeof(gEffectStr[0]))) {
         LOG("Effect is not exist\n");
@@ -1008,7 +2020,12 @@ int main(int argc,char **argv)
         } else if (gEffectIndex == 5 && gParamIndex == 2) {
            for (int i = 0; i < 9; i++)
            LOG("EffectIndex:%d, ParamIndex:%d, ParamBand:%d\n", gEffectIndex, gParamIndex, gParamBands[i]);
-        } else
+        } else if (gEffectIndex == 6 && ((gParamIndex >= 4 && gParamIndex <= 6) || gParamIndex == 9 || (gParamIndex >= 16 && gParamIndex <= 18)
+        ||(gParamIndex >= 20 && gParamIndex <= 22) || (gParamIndex >= 24 && gParamIndex <= 30) || gParamIndex == 38 || gParamIndex == 41
+        || gParamIndex == 47 || gParamIndex == 48 || gParamIndex == 53 || gParamIndex == 54 || gParamIndex == 56 || gParamIndex == 59 ||
+        gParamIndex == 60 || gParamIndex == 62 || gParamIndex == 64) || (gParamIndex >= 70 && gParamIndex <= 73) )
+             LOG("EffectIndex:%d, ParamIndex:%d, ParamScale:%f\n", gEffectIndex, gParamIndex, gParamScale);
+         else
              LOG("EffectIndex:%d, ParamIndex:%d, Paramvalue:%d\n", gEffectIndex, gParamIndex, gParamValue);
     while (1) {
         switch (gEffectIndex) {
@@ -1072,6 +2089,16 @@ int main(int argc,char **argv)
             if (Avl_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0)
                 LOG("Avl Test failed\n");
             break;
+         case EFFECT_VIRTUALX:
+            ret = create_audio_effect(&gAudioEffect[EFFECT_VIRTUALX], name16[EFFECT_VIRTUALX], EFFECT_VIRTUALX);
+            if (ret < 0) {
+                LOG("create Virtualx effect failed\n");
+                goto Error;
+            }
+            //------------set Virtualx parameters-------------------------------------------
+            if (Virtualx_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue,gParamScale) < 0)
+                LOG("Virtualx Test failed\n");
+            break;
         default:
             LOG("EffectIndex = %d invalid\n", gEffectIndex);
             break;
@@ -1092,16 +2119,27 @@ int main(int argc,char **argv)
         } else if (gEffectIndex == 5 && gParamIndex == 2) {
             scanf("%d %d %d %d %d %d %d %d %d",&gParamBands[0],&gParamBands[1],&gParamBands[2],&gParamBands[3],&gParamBands[4],
             &gParamBands[5],&gParamBands[6],&gParamBands[7],&gParamBands[8]);
-        } else
-            scanf("%d", &gParamValue);
+        } else if (gEffectIndex == 6 && ((gParamIndex >= 4 && gParamIndex <= 6) || gParamIndex == 9 || (gParamIndex >= 16 && gParamIndex <= 18)
+        ||(gParamIndex >= 20 && gParamIndex <= 22) || (gParamIndex >= 24 && gParamIndex <= 30) || gParamIndex == 38 || gParamIndex == 41
+        || gParamIndex == 47 || gParamIndex == 48 || gParamIndex == 53 || gParamIndex == 54 || gParamIndex == 56 || gParamIndex == 59 ||
+        gParamIndex == 60 || gParamIndex == 62 || gParamIndex == 64) || (gParamIndex >= 70 && gParamIndex <= 73)) {
+                scanf("%f", &gParamScale);
+            } else
+                scanf("%d", &gParamValue);
         if (gEffectIndex >= (int)(sizeof(gEffectStr)/sizeof(gEffectStr[0]))) {
             LOG("Effect is not exist\n");
             goto Error;
         }
         if (gEffectIndex == 1 && (gParamIndex == 7 || gParamIndex == 9 || gParamIndex == 11 || (gParamIndex >= 13 && gParamIndex <= 16)))
             LOG("EffectIndex:%d, ParamIndex:%d, ParamScale:%f\n", gEffectIndex, gParamIndex, gParamScale);
-        else
-            LOG("EffectIndex:%d, ParamIndex:%d, ParamValue:%d\n", gEffectIndex, gParamIndex, gParamValue);
+        else if (gEffectIndex == 6 && ((gParamIndex >= 4 && gParamIndex <= 6) || gParamIndex == 9 || (gParamIndex >= 16 && gParamIndex <= 18)
+        ||(gParamIndex >= 20 && gParamIndex <= 22) || (gParamIndex >= 24 && gParamIndex <= 30) || gParamIndex == 38 || gParamIndex == 41
+        || gParamIndex == 47 || gParamIndex == 48 || gParamIndex == 53 || gParamIndex == 54 || gParamIndex == 56 || gParamIndex == 59 ||
+        gParamIndex == 60 || gParamIndex == 62 || gParamIndex == 64) || (gParamIndex >= 70 && gParamIndex <= 73)) {
+             LOG("EffectIndex:%d, ParamIndex:%d, ParamScale:%f\n", gEffectIndex, gParamIndex, gParamScale);
+            }
+            else
+                LOG("EffectIndex:%d, ParamIndex:%d, ParamValue:%d\n", gEffectIndex, gParamIndex, gParamValue);
     }
 
     ret = 0;
