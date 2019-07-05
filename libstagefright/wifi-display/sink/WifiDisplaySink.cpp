@@ -136,6 +136,10 @@ namespace android
 
     void WifiDisplaySink::setTeardown(void)
     {
+        if (mState < CONNECTED) {
+            ALOGI("No need call setTeardown in state is %d", mState);
+            return;
+        }
         AString url = AStringPrintf("rtsp://%s/wfd1.0/streamid=0", mRTSPHost.c_str());
         sendTeardown(mSessionID, !mSetupURI.empty()? mSetupURI.c_str() : url.c_str());
     }
@@ -313,42 +317,11 @@ namespace android
                 if (sessionID == mSessionID)
                 {
                     ALOGI("Lost control connection.");
-
                     // The control connection is dead now.
-#if 0
-                    mNetSession->destroySession(mSessionID);
-                    mSessionID = 0;
-
-                    if (mRTPSink != NULL)
-                    {
-                        looper()->unregisterHandler(mRTPSink->id());
-                        mRTPSink.clear();
-                    }
-#endif
-                    ALOGI("Quiting WifiDisplaySink.");
-                    if (err == -111)    //"Connection refused"
-                    {
-                        if (mConnectionRetry++ < MAX_CONN_RETRY)
-                        {
-                            mNetSession->destroySession(mSessionID);
-                            mSessionID = 0;
-                            ALOGI("Retry rtsp connection %d", mConnectionRetry);
-                            retryStart(100000ll);	//delay 100ms
-                        }
-                        else
-                        {
-                            sp<AMessage> msg = new AMessage(kWhatSinkNotify, mSinkHandler);
-                            ALOGI("Post msg kWhatSinkNotify - RTSP_ERROR x2");
-                            msg->setString("reason", "RTSP_ERROR x2");
-                            msg->post();
-                        }
-                    }
-                    else {
-                        sp<AMessage> msg = new AMessage(kWhatSinkNotify, mSinkHandler);
-                        ALOGI("post msg kWhatSinkNotify - connection reset by peer");
-                        msg->setString("reason", "RTSP_RESET");
-                        msg->post();
-                    }
+                    sp<AMessage> msg = new AMessage(kWhatSinkNotify, mSinkHandler);
+                    ALOGI("post msg kWhatSinkNotify - connection reset by peer");
+                    msg->setString("reason", "RTSP_RESET");
+                    msg->post();
                     //looper()->stop();
                 }
                 break;
