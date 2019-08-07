@@ -418,6 +418,28 @@ Avl_param_t gAvlParam[] = {
 
 const char *AvlStatusstr[] = {"Disable", "Enable"};
 
+//-------------DBX parameters--------------------------
+typedef struct dbxtv_param_s {
+    effect_param_t param;
+    uint32_t command;
+    union {
+        uint32_t v;
+        signed char mode[3];
+    };
+} dbxtv_param_t;
+
+typedef enum {
+    DBX_PARAM_ENABLE,
+    DBX_SET_MODE,
+} DBXparams;
+
+dbxtv_param_t gdbxtvparam[] = {
+    {{0, 4, 4}, DBX_PARAM_ENABLE, {1}},
+    {{0, 4, 4}, DBX_SET_MODE, {0}},
+};
+
+const char *DBXStatusstr[] = {"Disable", "Enable"};
+
 //-------UUID------------------------------------------
 typedef enum {
     EFFECT_BALANCE = 0,
@@ -427,6 +449,7 @@ typedef enum {
     EFFECT_AVL,
     EFFECT_GEQ,
     EFFECT_VIRTUALX,
+    EFFECT_DBX,
     EFFECT_MAX,
 } EFFECT_params;
 
@@ -438,6 +461,7 @@ effect_uuid_t gEffectStr[] = {
     {0x08246a2a, 0xb2d3, 0x4621, 0xb804, {0x42, 0xc9, 0xb4, 0x78, 0xeb, 0x9d}}, // 4:Avl
     {0x2e2a5fa6, 0xcae8, 0x45f5, 0xbb70, {0xa2, 0x9c, 0x1f, 0x30, 0x74, 0xb2}}, // 5:Geq
     {0x61821587, 0xce3c, 0x4aac, 0x9122, {0x86, 0xd8, 0x74, 0xea, 0x1f, 0xb1}}, // 6:Virtualx
+    {0x07210842, 0x7432, 0x4624, 0x8b97, {0x35, 0xac, 0x87, 0x82, 0xef, 0xa3}}, // 7:DBX
 };
 
 static inline float DbToAmpl(float decibels)
@@ -1551,6 +1575,34 @@ static int HPEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gPar
     }
 }
 
+static int DBX_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, signed char gMode[3])
+{
+    int rc = 0;
+    switch (gParamIndex) {
+    case DBX_PARAM_ENABLE:
+        if (gParamValue < 0 || gParamValue > 1) {
+            LOG("DBX: Status gParamValue = %d invalid\n", gParamValue);
+            return -1;
+        }
+        gdbxtvparam[gParamIndex].v = gParamValue;
+        gAudioEffect->setParameter(&gdbxtvparam[gParamIndex].param);
+        LOG("DBX: Status is %d -> %s\n", gParamValue, DBXStatusstr[gdbxtvparam[gParamIndex].v]);
+        return 0;
+     case DBX_SET_MODE:
+        gdbxtvparam[gParamIndex].mode[0] = gMode[0];
+        LOG("DBX:mode[0] is %d\n",gdbxtvparam[gParamIndex].mode[0]);
+        gdbxtvparam[gParamIndex].mode[1] = gMode[1];
+        LOG("DBX:mode[1] is %d\n",gdbxtvparam[gParamIndex].mode[1]);
+        gdbxtvparam[gParamIndex].mode[2] = gMode[2];
+        LOG("DBX:mode[2] is %d\n",gdbxtvparam[gParamIndex].mode[2]);
+        rc = gAudioEffect->setParameter(&gdbxtvparam[gParamIndex].param);
+        LOG("rc is %d\n",rc);
+        return 0;
+    default:
+        LOG("DBX: ParamIndex = %d invalid\n", gParamIndex);
+        return -1;
+    }
+}
 static int GEQ_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, signed char gParamBands[9])
 {
     switch (gParamIndex) {
@@ -1731,11 +1783,12 @@ int main(int argc,char **argv)
     int gParamIndex = 0;
     int gParamValue = 0;
     float gParamScale = 0.0f;
-    signed char gParamBand[5]={0};
-    signed char gParamBands[9]={0};
+    signed char gmode[3] = {0};
+    signed char gParamBand[5] = {0};
+    signed char gParamBands[9] = {0};
     status_t status = NO_ERROR;
     String16 name16[EFFECT_MAX] = {String16("AudioEffectEQTest"), String16("AudioEffectSRSTest"), String16("AudioEffectHPEQTest"),
-        String16("AudioEffectAVLTest"), String16("AudioEffectGEQTest"),String16("AudioEffectVirtualxTest")};
+        String16("AudioEffectAVLTest"), String16("AudioEffectGEQTest"),String16("AudioEffectVirtualxTest"),String16("AudioEffectDBXTest")};
     AudioEffect* gAudioEffect[EFFECT_MAX] = {0};
     audio_session_t gSessionId = AUDIO_SESSION_OUTPUT_MIX;
     LOG("**********************************Balance***********************************\n");
@@ -1974,7 +2027,16 @@ int main(int argc,char **argv)
     LOG("ParamIndex: 73 -> mbhl frt midcross\n");
     LOG("ParamScale 40 ~ 8000\n");
     LOG("****************************************************************************\n\n");
-   if (argc != 4 && argc != 12 && argc != 8 ) {
+
+    LOG("**********************************DBX***********************************\n");
+    LOG("EffectIndex: 7\n");
+    LOG("ParamIndex: 0 -> Enable\n");
+    LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+    LOG("ParamIndex: 1 -> Choose mode(son_mode--vol_mode--sur_mode)\n");
+    LOG("ParamValue: son_mode 0-4 vol_mode  0-2 sur_mode 0-2\n");
+    LOG("****************************************************************************\n\n");
+
+   if (argc != 4 && argc != 12 && argc != 8 && argc != 6) {
         LOG("Usage: %s <EffectIndex> <ParamIndex> <ParamValue/ParamScale/gParamBand>\n", argv[0]);
         return -1;
    } else {
@@ -1999,12 +2061,16 @@ int main(int argc,char **argv)
             sscanf(argv[9], "%d", &gParamBands[6]);
             sscanf(argv[10], "%d", &gParamBands[7]);
             sscanf(argv[11], "%d", &gParamBands[8]);
-      } else if (gEffectIndex == 6 && ((gParamIndex >= 4 && gParamIndex <= 6) || gParamIndex == 9 || (gParamIndex >= 16 && gParamIndex <= 18)
+      } else if ((gEffectIndex == 6) && ((gParamIndex >= 4 && gParamIndex <= 6) || gParamIndex == 9 || (gParamIndex >= 16 && gParamIndex <= 18)
         ||(gParamIndex >= 20 && gParamIndex <= 22) || (gParamIndex >= 24 && gParamIndex <= 30) || gParamIndex == 38 || gParamIndex == 41
         || gParamIndex == 47 || gParamIndex == 48 || gParamIndex == 53 || gParamIndex == 54 || gParamIndex == 56 || gParamIndex == 59 ||
         gParamIndex == 60 || gParamIndex == 62 || gParamIndex == 64) || (gParamIndex >= 70 && gParamIndex <= 73))  {
             sscanf(argv[3], "%f", &gParamScale);
-      }  else
+      }  else if (gEffectIndex == 7 && gParamIndex == 1) {
+            sscanf(argv[3], "%d", &gmode[0]);
+            sscanf(argv[4], "%d", &gmode[1]);
+            sscanf(argv[5], "%d", &gmode[2]);
+      } else
             sscanf(argv[3], "%d", &gParamValue);
     }
     if (gEffectIndex >= (int)(sizeof(gEffectStr)/sizeof(gEffectStr[0]))) {
@@ -2025,7 +2091,10 @@ int main(int argc,char **argv)
         || gParamIndex == 47 || gParamIndex == 48 || gParamIndex == 53 || gParamIndex == 54 || gParamIndex == 56 || gParamIndex == 59 ||
         gParamIndex == 60 || gParamIndex == 62 || gParamIndex == 64) || (gParamIndex >= 70 && gParamIndex <= 73) )
              LOG("EffectIndex:%d, ParamIndex:%d, ParamScale:%f\n", gEffectIndex, gParamIndex, gParamScale);
-         else
+         else if (gEffectIndex == 7 && gParamIndex == 1) {
+            for (int i = 0; i < 3; i++)
+                LOG("EffectIndex:%d, ParamIndex:%d, ParamMode:%d\n", gEffectIndex, gParamIndex, gmode[i]);
+         } else
              LOG("EffectIndex:%d, ParamIndex:%d, Paramvalue:%d\n", gEffectIndex, gParamIndex, gParamValue);
     while (1) {
         switch (gEffectIndex) {
@@ -2099,6 +2168,16 @@ int main(int argc,char **argv)
             if (Virtualx_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue,gParamScale) < 0)
                 LOG("Virtualx Test failed\n");
             break;
+        case EFFECT_DBX:
+            ret = create_audio_effect(&gAudioEffect[EFFECT_DBX], name16[EFFECT_DBX], EFFECT_DBX);
+            if (ret < 0) {
+                LOG("create EFFECT_DBX effect failed\n");
+                goto Error;
+            }
+            //------------set DBX parameters------------------------------------------------
+            if (DBX_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue,gmode) < 0)
+                LOG("DBX Test failed\n");
+            break;
         default:
             LOG("EffectIndex = %d invalid\n", gEffectIndex);
             break;
@@ -2124,6 +2203,8 @@ int main(int argc,char **argv)
         || gParamIndex == 47 || gParamIndex == 48 || gParamIndex == 53 || gParamIndex == 54 || gParamIndex == 56 || gParamIndex == 59 ||
         gParamIndex == 60 || gParamIndex == 62 || gParamIndex == 64) || (gParamIndex >= 70 && gParamIndex <= 73)) {
                 scanf("%f", &gParamScale);
+            } else if (gEffectIndex == 7 && gParamIndex == 1) {
+                scanf("%d %d %d",&gmode[0],&gmode[1],&gmode[2]);
             } else
                 scanf("%d", &gParamValue);
         if (gEffectIndex >= (int)(sizeof(gEffectStr)/sizeof(gEffectStr[0]))) {
