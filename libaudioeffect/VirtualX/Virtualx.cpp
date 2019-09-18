@@ -40,13 +40,12 @@
 #include <pthread.h>
 #include <cutils/properties.h>
 
-
 extern "C" {
 
 #define MODEL_SUM_DEFAULT_PATH "/vendor/etc/tvconfig/model/model_sum.ini"
 #define AUDIO_EFFECT_DEFAULT_PATH "/vendor/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
-#define DTS_VIRTUALX_FRAME_SIZE           256
-#define DTS_FXP32( val, x )             ( int32_t )( val * ( ( int64_t )1L << ( 32 - x ) ) )
+#define DTS_VIRTUALX_FRAME_SIZE 256
+#define DTS_FXP32(val, x) (int32_t)(val * ((int64_t)1L << (32 - x)))
 
 #if defined(__LP64__)
 #define LIBVX_PATH_A "/vendor/lib64/soundfx/libvx.so"
@@ -70,103 +69,17 @@ const effect_descriptor_t VirtualxDescriptor = {
         "VirtualX",
         "DTS Labs",
 };
+
 enum Virtualx_state_e {
     VIRTUALX_STATE_UNINITIALIZED,
     VIRTUALX_STATE_INITIALIZED,
     VIRTUALX_STATE_ACTIVE,
 };
-typedef enum {
-    VIRTUALX_MODE_STANDARD = 0,
-    VIRTUALX_MODE_MUSIC,
-    VIRTUALX_MODE_MOVIE,
-    VIRTUALX_MODE_CLEAR_VOICE,
-    VIRTUALX_MODE_ENHANCED_BASS,
-    VIRTUALX_MODE_CUSTOM,
-    VIRTUALX_MODE_NUM,
-} VXmode;
-
-typedef enum {
-    VIRTUALX_PARAM_ENABLE                                   = 0,
-    VIRTUALX_PARAM_DIALOGCLARTY_MODE                        = 1,
-    VIRTUALX_PARAM_SURROUND_MODE                            = 2,
-    DTS_PARAM_MBHL_ENABLE_I32                               = 3,
-    DTS_PARAM_MBHL_BYPASS_GAIN_I32                          = 4,
-    DTS_PARAM_MBHL_REFERENCE_LEVEL_I32                      = 5,
-    DTS_PARAM_MBHL_VOLUME_I32                               = 6,
-    DTS_PARAM_MBHL_VOLUME_STEP_I32                          = 7,
-    DTS_PARAM_MBHL_BALANCE_STEP_I32                         = 8,
-    DTS_PARAM_MBHL_OUTPUT_GAIN_I32                          = 9,
-    DTS_PARAM_MBHL_MODE_I32                                 = 10,
-    DTS_PARAM_MBHL_PROCESS_DISCARD_I32                      = 11,
-    DTS_PARAM_MBHL_CROSS_LOW_I32                            = 12,
-    DTS_PARAM_MBHL_CROSS_MID_I32                            = 13,
-    DTS_PARAM_MBHL_COMP_ATTACK_I32                          = 14,
-    DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32                     = 15,
-    DTS_PARAM_MBHL_COMP_LOW_RATIO_I32                       = 16,
-    DTS_PARAM_MBHL_COMP_LOW_THRESH_I32                      = 17,
-    DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32                      = 18,
-    DTS_PARAM_MBHL_COMP_MID_RELEASE_I32                     = 19,
-    DTS_PARAM_MBHL_COMP_MID_RATIO_I32                       = 20,
-    DTS_PARAM_MBHL_COMP_MID_THRESH_I32                      = 21,
-    DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32                      = 22,
-    DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32                    = 23,
-    DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32                      = 24,
-    DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32                     = 25,
-    DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32                     = 26,
-    DTS_PARAM_MBHL_BOOST_I32                                = 27,
-    DTS_PARAM_MBHL_THRESHOLD_I32                            = 28,
-    DTS_PARAM_MBHL_SLOW_OFFSET_I32                          = 29,
-    DTS_PARAM_MBHL_FAST_ATTACK_I32                          = 30,
-    DTS_PARAM_MBHL_FAST_RELEASE_I32                         = 31,
-    DTS_PARAM_MBHL_SLOW_ATTACK_I32                          = 32,
-    DTS_PARAM_MBHL_SLOW_RELEASE_I32                         = 33,
-    DTS_PARAM_MBHL_DELAY_I32                                = 34,
-    DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32                   = 35,
-    DTS_PARAM_TBHDX_ENABLE_I32                              = 36,
-    DTS_PARAM_TBHDX_MONO_MODE_I32                           = 37,
-    DTS_PARAM_TBHDX_MAXGAIN_I32                             = 38,
-    DTS_PARAM_TBHDX_SPKSIZE_I32                             = 39,
-    DTS_PARAM_TBHDX_HP_ENABLE_I32                           = 40,
-    DTS_PARAM_TBHDX_TEMP_GAIN_I32                           = 41,
-    DTS_PARAM_TBHDX_PROCESS_DISCARD_I32                     = 42,
-    DTS_PARAM_TBHDX_HPORDER_I32                             = 43,
-    DTS_PARAM_VX_ENABLE_I32                                 = 44,
-    DTS_PARAM_VX_INPUT_MODE_I32                             = 45,
-    DTS_PARAM_VX_OUTPUT_MODE_I32                            = 46,
-    DTS_PARAM_VX_HEADROOM_GAIN_I32                          = 47,
-    DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32                       = 48,
-    DTS_PARAM_VX_REFERENCE_LEVEL_I32                        = 49,
-    DTS_PARAM_TSX_ENABLE_I32                                = 50,
-    DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32             = 51,
-    DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32                   = 52,
-    DTS_PARAM_TSX_LPR_GAIN_I32                              = 53,
-    DTS_PARAM_TSX_CENTER_GAIN_I32                           = 54,
-    DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32                    = 55,
-    DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32                       = 56,
-    DTS_PARAM_TSX_PROCESS_DISCARD_I32                       = 57,
-    DTS_PARAM_TSX_HEIGHT_DISCARD_I32                        = 58,
-    DTS_PARAM_TSX_FRNT_CTRL_I32                             = 59,
-    DTS_PARAM_TSX_SRND_CTRL_I32                             = 60,
-    DTS_PARAM_VX_DC_ENABLE_I32                              = 61,
-    DTS_PARAM_VX_DC_CONTROL_I32                             = 62,
-    DTS_PARAM_VX_DEF_ENABLE_I32                             = 63,
-    DTS_PARAM_VX_DEF_CONTROL_I32                            = 64,
-    DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32                   = 65,
-    DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32          = 66,
-    DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32                   = 67,
-    DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32                  = 68,
-    DTS_PARAM_TBHDX_APP_SPKSIZE_I32                         = 69,
-    DTS_PARAM_TBHDX_APP_HPRATIO_F32                         = 70,
-    DTS_PARAM_TBHDX_APP_EXTBASS_F32                         = 71,
-    DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32                     = 72,
-    DTS_PARAM_MBHL_APP_FRT_MIDCROSS_F32                     = 73,
-
-}Virtualxparams;
 
 typedef struct Virtualxapi_s {
     int (*VX_init)(void *);
     int (*VX_release)(void);
-    int (*VX_process)(int32_t **in,int32_t **out);
+    int (*VX_process)(int32_t **in,int32_t **out,int ch);
     int (*MBHL_process)(int32_t **in,int32_t **out);
     int (*setvxlib1_enable)(int32_t value);
     int (*getvxlib1_enable)(int32_t *value);
@@ -296,6 +209,7 @@ typedef struct Virtualxapi_s {
     int (*gettruvolume_ctrtarget)(int32_t *value);
     int (*settruvolume_ctrpreset)(int32_t value);
     int (*gettruvolume_ctrpreset)(int32_t *value);
+    int (*setlc_inmode)(int32_t value);
     int (*settbhd_FilterDesign)(int32_t spksize,float basslvl, float hpratio,float extbass);
     int (*setmbhl_FilterDesign)(float lowCrossFreq,float midCrossFreq);
 } Virtualxapi;
@@ -375,13 +289,13 @@ typedef struct mbhl_param_s {
     float      mbhl_highratio;//Compressor high ratio
     float      mbhl_highthreshold;//Compressor high threshold
     float      mbhl_highmakegian;//Compressor high makeupgain
-}mbhl_param;
+} mbhl_param;
 
 typedef struct Truvolume_param_s {
     int32_t    enable;
     int32_t    targetlevel;
     int32_t    preset;
-}Truvolume_param;
+} Truvolume_param;
 
 typedef struct TS_cfg_s {
     vxtrusurround_param       vxtrusurround;
@@ -389,9 +303,16 @@ typedef struct TS_cfg_s {
     tbhdx_param               tbhdx;
 } TS_cfg;
 
+static TS_cfg default_TS_cfg {
+    {1,1,0,1.0,1.0,1.0,1.0,1.0,0,0,1},{0,0.4},{0,0,2,0.3339,0.3,4,1},
+};
 typedef struct DC_cfg_s {
     vxdialogclarity_param     vxdialogclarity;
- } DC_cfg;
+} DC_cfg;
+
+static DC_cfg default_DC_cfg {
+    0,0.4,
+};
 
 #define TS_MODE_MUM     2
 #define DC_MODE_MUM     3
@@ -401,6 +322,11 @@ typedef struct Virtualxcfg_s {
     mbhl_param                mbhl;
     Truvolume_param           Truvolume;
 } Virtualxcfg;
+
+static Virtualxcfg default_Virtualxcfg {
+    {1,0,0,1.0,1.0},{1,1.0,1.0,1.0,100,0,1.0,1.0,1.0,1.0,5,50,500,500,8,20,0,7,15,5,250,4.0,0.501,1.0,250,4.0,0.501,1.0,250,4.0,0.501,1.0,},
+    {1,-24,1},
+};
 
 typedef struct vxdata_s {
     struct {
@@ -467,13 +393,13 @@ typedef struct vxdata_s {
         int32_t    targetlevel;
         int32_t    preset;
     };
-     int            enable;
-     Virtualxcfg    vxcfg;
-     int            counter;
-     TS_cfg         TS_usr_cfg[TS_MODE_MUM];
-     DC_cfg         DC_usr_cfg[DC_MODE_MUM];
-     int            dialogclarity_mode;
-     int            surround_mode;
+    int            enable;
+    Virtualxcfg    vxcfg;
+    int            counter;
+    TS_cfg         TS_usr_cfg[TS_MODE_MUM];
+    DC_cfg         DC_usr_cfg[DC_MODE_MUM];
+    int            dialogclarity_mode;
+    int            surround_mode;
 } vxdata;
 
 typedef struct vxContext_s {
@@ -484,24 +410,17 @@ typedef struct vxContext_s {
     vxdata                          gvxdata;
     Virtualxapi                     gVirtualxapi;
     int32_t                        sTempBuffer[12][256];
+    int32_t                        TempBuffer[12][256];
     int32_t                        *ppMappedInCh[12];
-    int32_t                        *ppMappedOutCh[2];
+    int32_t                        *ppMappedOutCh[12];
+    int32_t                        *ppDataIn[12];
     float                          lowcrossfreq;
     float                          midcrossfreq;
     int32_t                        spksize;
     float                          hpratio;
     float                          extbass;
-}vxContext;
-
-static TS_cfg TS_default_usr_cfg[TS_MODE_MUM]__unused = {
-    {{1, 0, 0, 1.0, 1.0, 1.0, 1.0, 1.0, 0, 0, 1},{1, 0.4},{1, 0, 2, 0.3339, 0.3, 4, 1}},//on
-    {{1, 1, 0, 1.0, 1.0, 1.0, 1.0, 1.0, 0, 0, 1},{0, 0.4},{0, 0, 2, 0.3339, 0.3, 4, 1}},//off
-};
-static DC_cfg DC_default_usr_cfg[DC_MODE_MUM]__unused = {
-    {{1, 0.0}},  //OFF
-    {{1, 0.15}}, //LOW
-    {{1, 0.3}},  //HIGH
-};
+    int32_t                        ch_num;
+} vxContext;
 
 const char *VXStatusstr[] = {"Disable", "Enable"};
 const char *VXLibStatusstr[] = {"Disable", "Enable"};
@@ -532,6 +451,7 @@ int Virtualx_get_model_name(char *model_name, int size)
     ALOGD("%s: Model Name -> %s", __FUNCTION__, model_name);
     return ret;
 }
+
 /*
 static int getprop_bool(const char *path)
 {
@@ -547,6 +467,7 @@ static int getprop_bool(const char *path)
     return 0;
 }
 */
+
 int Virtualx_get_ini_file(char *ini_name, int size)
 {
     int result = -1;
@@ -723,7 +644,6 @@ error:
     return -1;
 }
 
-
 int Virtualx_load_ini_file(vxContext *pContext)
 {
     int result = -1;
@@ -744,6 +664,9 @@ int Virtualx_load_ini_file(vxContext *pContext)
         goto error;
     //ALOGD("%s: enable -> %s", __FUNCTION__, ini_value);
     data->enable = atoi(ini_value);
+    if (data->enable == 0) {
+        property_set("media.libplayer.dtsMulChPcm","false");
+    }
      //virtuallibx parse
     ini_value =  pIniParser->GetString("Virtualx", "virtuallibx", "NULL");
     if (ini_value == NULL)
@@ -1038,7 +961,7 @@ int Virtualx_load_lib(vxContext *pContext)
         ALOGE("%s: find func VX_release() failed\n", __FUNCTION__);
         goto Error;
     }
-    pContext->gVirtualxapi.VX_process = (int (*)(int32_t **,int32_t**))dlsym(pContext->gVXLibHandler, "VX_process_api");
+    pContext->gVirtualxapi.VX_process = (int (*)(int32_t **,int32_t**,int))dlsym(pContext->gVXLibHandler, "VX_process_api");
     if (!pContext->gVirtualxapi.VX_process) {
         ALOGE("%s: find func VX_process() failed\n", __FUNCTION__);
         goto Error;
@@ -1690,6 +1613,11 @@ int Virtualx_load_lib(vxContext *pContext)
         ALOGE("%s: find func gettruvolume_ctrpreset() failed\n", __FUNCTION__);
         goto Error;
     }
+    pContext->gVirtualxapi.setlc_inmode = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "setlc_inmode");
+    if (!pContext->gVirtualxapi.setlc_inmode) {
+        ALOGE("%s: find func setlc_inmode() failed\n", __FUNCTION__);
+        goto Error;
+    }
     pContext->gVirtualxapi.settbhd_FilterDesign = (int (*)(int32_t,float,float,float))dlsym(pContext->gVXLibHandler, "settbhd_FilterDesign");
     if (!pContext->gVirtualxapi.settbhd_FilterDesign) {
         ALOGE("%s: find func settbhd_FilterDesign() failed\n", __FUNCTION__);
@@ -1700,8 +1628,8 @@ int Virtualx_load_lib(vxContext *pContext)
         ALOGE("%s: find func setmbhl_FilterDesign() failed\n", __FUNCTION__);
         return -1;
     }
+    property_set("media.libplayer.dtsMulChPcm","true");
     ALOGD("%s: sucessful", __FUNCTION__);
-
     return 0;
 Error:
     memset(&pContext->gVirtualxapi, 0, sizeof(pContext->gVirtualxapi));
@@ -1742,6 +1670,7 @@ int Virtualx_init(vxContext *pContext)
 
     //init counter and value
     pContext->gvxdata.counter = 0;
+    pContext->ch_num = 0;
     pContext->lowcrossfreq = 300;
     pContext->midcrossfreq = 5000;
     pContext->spksize = 80;
@@ -1810,20 +1739,10 @@ int Virtualx_init(vxContext *pContext)
     data->targetlevel = data->vxcfg.Truvolume.targetlevel;
     data->preset = data->vxcfg.Truvolume.preset;
     //malloc memory for ppMappedInCh[3]~ppMappedInCh[11] to fix crash (null pointer dereference)
-    pContext->ppMappedInCh[0] = pContext->sTempBuffer[0];
-    pContext->ppMappedInCh[1] = pContext->sTempBuffer[1];
-    pContext->ppMappedInCh[2] = pContext->sTempBuffer[2];
-    pContext->ppMappedInCh[3] = pContext->sTempBuffer[3];
-    pContext->ppMappedInCh[4] = pContext->sTempBuffer[4];
-    pContext->ppMappedInCh[5] = pContext->sTempBuffer[5];
-    pContext->ppMappedInCh[6] = pContext->sTempBuffer[6];
-    pContext->ppMappedInCh[7] = pContext->sTempBuffer[7];
-    pContext->ppMappedInCh[8] = pContext->sTempBuffer[8];
-    pContext->ppMappedInCh[9] = pContext->sTempBuffer[9];
-    pContext->ppMappedInCh[10] = pContext->sTempBuffer[10];
-    pContext->ppMappedInCh[11] = pContext->sTempBuffer[11];
-    pContext->ppMappedOutCh[0] = pContext->sTempBuffer[0];
-    pContext->ppMappedOutCh[1] = pContext->sTempBuffer[1];
+    for (int i = 0; i < 12; i++) {
+        pContext->ppDataIn[i] = pContext->sTempBuffer[i];
+        pContext->ppMappedOutCh[i] = pContext->TempBuffer[i];
+    }
 
     if (pContext->gVXLibHandler) {
         (*pContext->gVirtualxapi.VX_init)((void*) data);
@@ -1837,14 +1756,14 @@ int Virtualx_configure(vxContext *pContext, effect_config_t *pConfig)
 {
     if (pConfig->inputCfg.samplingRate != pConfig->outputCfg.samplingRate)
         return -EINVAL;
-    if (pConfig->inputCfg.channels != pConfig->outputCfg.channels)
-        return -EINVAL;
     if (pConfig->inputCfg.format != pConfig->outputCfg.format)
        return -EINVAL;
+    /*
     if (pConfig->inputCfg.channels != AUDIO_CHANNEL_OUT_STEREO) {
         ALOGW("%s: channels in = 0x%x channels out = 0x%x", __FUNCTION__, pConfig->inputCfg.channels, pConfig->outputCfg.channels);
         pConfig->inputCfg.channels = pConfig->outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
     }
+    */
     if (pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_WRITE &&
                 pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
@@ -1862,6 +1781,7 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
     int32_t value;
     float scale;
     int32_t basslvl;
+    float * p;
     vxdata *data = &pContext->gvxdata;
     switch (param) {
         case VIRTUALX_PARAM_ENABLE:
@@ -1870,6 +1790,11 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
             }
             value = *(int32_t *)pValue;
             data->enable = value;
+            if (data->enable) {
+                property_set("media.libplayer.dtsMulChPcm","true");
+            } else {
+                property_set("media.libplayer.dtsMulChPcm","false");
+            }
             ALOGD("%s: Set status -> %s", __FUNCTION__, VXStatusstr[value]);
             break;
         case VIRTUALX_PARAM_DIALOGCLARTY_MODE:
@@ -2306,6 +2231,9 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
                 return 0;
             }
             value = *(int32_t *)pValue;
+            if (value > 1)
+                value = 1;
+            pContext->ch_num = value; // here to set input ch num
             (*pContext->gVirtualxapi.setvxlib1_inmode)(value);
             ALOGD("%s set vxlib1 inmode %d",__FUNCTION__, value);
             break;
@@ -2486,6 +2414,14 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
             (*pContext->gVirtualxapi.settruvolume_ctrpreset)(value);
             ALOGD("%s set truvolume ctrpreset %d",__FUNCTION__, value);
             break;
+        case DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32:
+             if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            value = *(int32_t *)pValue;
+            (*pContext->gVirtualxapi.setlc_inmode)(value);
+            ALOGD("%s set lc inmode %d",__FUNCTION__, value);
+            break;
         case DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32:
             if (!pContext->gVXLibHandler) {
                 return 0;
@@ -2528,6 +2464,374 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
             (*pContext->gVirtualxapi.gettbhdx_tempgain)(&basslvl);
             (*pContext->gVirtualxapi.settbhd_FilterDesign)(pContext->spksize,((float)basslvl)/1073741824.0f,pContext->hpratio,pContext->extbass);
             ALOGD("%s set tbhd filter design spksize %d  hpratio %f extbass %f",__FUNCTION__,pContext->spksize,pContext->hpratio,pContext->extbass);
+            break;
+        case VIRTUALX_PARAM_COUNTER:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            value = *(int32_t *)pValue;
+            pContext->gvxdata.counter = value;
+            /*do nothing*/
+            break;
+        case AUDIO_DTS_PARAM_TYPE_NONE:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            p = (float *)pValue;
+            (*pContext->gVirtualxapi.setvxlib1_enable)((int32_t)*p++);
+            (*pContext->gVirtualxapi.settsx_dcenable)((int32_t)*p);
+            break;
+        case AUDIO_DTS_PARAM_TYPE_TRU_SURROUND:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            p = (float *)pValue;
+            value = (int32_t)*p++;
+            ALOGV("value1 is %d",value);
+            if (value > 1)
+                value = 1;
+            else if (value < 0)
+                value = 0;
+            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
+            scale = *p++;
+            if (scale < 0.125)
+                scale = 0.125;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale2 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
+            scale = *p++;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 4.0)
+                scale = 4.0;
+            ALOGV("scale3 is %f",scale);
+            value = DTS_FXP32(scale,4);
+            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value4 is %d",value);
+            (*pContext->gVirtualxapi.settsx_enable)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value5 is %d",value);
+            (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value6 is %d",value);
+            (*pContext->gVirtualxapi.settsx_horizontctl)(value);
+            scale = *p++;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 2.0)
+                scale = 2.0;
+            ALOGV("scale7 is %f",scale);
+            value = DTS_FXP32(scale,3);
+            (*pContext->gVirtualxapi.settsx_frntctrl)(value);
+            scale = *p;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 2.0)
+                scale = 2.0;
+            ALOGV("scale8 is %f",scale);
+            value = DTS_FXP32(scale,3);
+            (*pContext->gVirtualxapi.settsx_surroundctrl)(value);
+            break;
+        case AUDIO_DTS_PARAM_TYPE_CC3D:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            p = (float *)pValue;
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value1 is %d",value);
+            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
+            scale = *p++;
+            if (scale < 0.125)
+                scale = 0.125;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale2 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
+            scale = *p++;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 4.0)
+                scale = 4.0;
+            ALOGV("scale3 is %f",scale);
+            value = DTS_FXP32(scale,4);
+            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value4 is %d",value);
+            (*pContext->gVirtualxapi.settsx_enable)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value5 is %d",value);
+            (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value6 is %d",value);
+            (*pContext->gVirtualxapi.settsx_hghtupmixenable)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value7 is %d",value);
+            (*pContext->gVirtualxapi.settsx_heightdiscards)(value);
+            scale = *p;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 2.0)
+                scale = 2.0;
+            ALOGV("scale8 is %f",scale);
+             value = DTS_FXP32(scale,3);
+            (*pContext->gVirtualxapi.settsx_heightmixcoeff)(value);
+            break;
+        case AUDIO_DTS_PARAM_TYPE_TRU_BASS:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            p = (float *)pValue;
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value1 is %d",value);
+            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
+            scale = *p++;
+            if (scale < 0.125)
+                scale = 0.125;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale2 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
+            scale = *p++;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 4.0)
+                scale = 4.0;
+            ALOGV("scale3 is %f",scale);
+            value = DTS_FXP32(scale,4);
+            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value4 is %d",value);
+            (*pContext->gVirtualxapi.settbhdx_enable)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value5 is %d",value);
+            (*pContext->gVirtualxapi.settbhdx_monomode)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 12)
+                value = 12;
+            ALOGV("value6 is %d",value);
+            (*pContext->gVirtualxapi.settbhdx_spksize)(value);
+            scale = *p++;
+            if (scale < 0.0)
+                scale = 0.0;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale7 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (*pContext->gVirtualxapi.settbhdx_tempgain)(value);
+            scale = *p++;
+            if (scale < 0.0)
+                scale = 0.0;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale8 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (*pContext->gVirtualxapi.settbhdx_maxgain)(value);
+            value = (int32_t)*p++;
+            if (value < 1)
+                value = 1;
+            else if (value > 8)
+                value = 8;
+            ALOGV("value9 is %d",value);
+            (*pContext->gVirtualxapi.settbhdx_hporder)(value);
+            value = (int32_t)*p;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value10 is %d",value);
+            (*pContext->gVirtualxapi.settbhdx_hpenable)(value);
+            break;
+        case AUDIO_DTS_PARAM_TYPE_TRU_DIALOG:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            p = (float *)pValue;
+            value = (int32_t)*p++;
+            ALOGV("value1 is %d",value);
+            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
+            scale = *p++;
+            if (scale < 0.125)
+                scale = 0.125;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale2 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
+            scale = *p++;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 4.0)
+                scale = 4.0;
+            ALOGV("scale3 is %f",scale);
+            value = DTS_FXP32(scale,4);
+            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value4 is %d",value);
+            (*pContext->gVirtualxapi.settsx_enable)(value);
+            scale = *p++;
+            if (scale < 0.0)
+                scale = 0.0;
+            else if (scale > 2.0)
+                scale = 2.0;
+            ALOGV("scale5 is %f",scale);
+            value = DTS_FXP32(scale,3);
+            (*pContext->gVirtualxapi.settsx_lprgain)(value);
+            scale = *p++;
+            if (scale < 1.0)
+                scale = 1.0;
+            else if (scale > 2.0)
+                scale = 2.0;
+            ALOGV("scale6 is %f",scale);
+            value = DTS_FXP32(scale,3);
+            (pContext->gVirtualxapi.settsx_centergain)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value7 is %d",value);
+            (*pContext->gVirtualxapi.settsx_dcenable)(value);
+            scale = *p;
+            if (scale < 0.0)
+                scale = 0.0;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale8 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (*pContext->gVirtualxapi.settsx_dccontrol)(value);
+            break;
+        case AUDIO_DTS_PARAM_TYPE_DEFINATION:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            p = (float *)pValue;
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value1 is %d",value);
+            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
+            scale = *p++;
+            if (scale < 0.125)
+                scale = 0.125;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale2 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
+            scale = *p++;
+            if (scale < 0.5)
+                scale = 0.5;
+            else if (scale > 4.0)
+                scale = 4.0;
+            ALOGV("scale3 is %f",scale);
+            value = DTS_FXP32(scale,4);
+            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value4 is %d",value);
+            (*pContext->gVirtualxapi.settsx_enable)(value);
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value5 is %d",value);
+            (*pContext->gVirtualxapi.settsx_defenable)(value);
+            scale = *p;
+            if (scale < 0.0)
+                scale = 0.0;
+            else if (scale > 1.0)
+                scale = 1.0;
+            ALOGV("scale6 is %f",scale);
+            value = DTS_FXP32(scale,2);
+            (*pContext->gVirtualxapi.settsx_defcontrol)(value);
+            break;
+        case AUDIO_DTS_PARAM_TYPE_TRU_VOLUME:
+            if (!pContext->gVXLibHandler) {
+                return 0;
+            }
+            p = (float *)pValue;
+            value = (int32_t)*p++;
+            if (value < 0)
+                value = 0;
+            else if (value > 1)
+                value = 1;
+            ALOGV("value1 is %d",value);
+            (*pContext->gVirtualxapi.settruvolume_ctren)(value);
+            value = (int32_t)*p++;
+            if (value < -40)
+                value = -40;
+            else if (value > 0)
+                value = 0;
+            ALOGV("value2 is %d",value);
+            (*pContext->gVirtualxapi.settruvolume_ctrtarget)(value);
+            value = (int32_t)*p;
+            if (value < 0)
+                value = 0;
+            else if (value > 2)
+                value = 2;
+            ALOGV("value3 is %d",value);
+            (*pContext->gVirtualxapi.settruvolume_ctrpreset)(value);
             break;
         default:
             ALOGE("%s: unknown param %08x", __FUNCTION__, param);
@@ -3393,13 +3697,56 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
     } else {
         int32_t blockSize = DTS_VIRTUALX_FRAME_SIZE;
         int32_t blockCount = inBuffer->frameCount / blockSize;
+        int actual_ch = 0;
         for (int i = 0; i < blockCount; i++) {
             for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
-                pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
+                if (pContext->ch_num == 0 /*for 2ch process*/) {
+                    pContext->ppDataIn[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
+                    pContext->ppDataIn[1][sampleCount] = (int32_t(*in++)) << 16;
+                    for (int i = 2; i < 12; i++) {
+                        pContext->ppDataIn[i][sampleCount] = 0;
+                    }
+                    for (int i = 0; i < 12; i++) {
+                        pContext->ppMappedInCh[i] = pContext->ppDataIn[i];
+                    }
+                    actual_ch = 2;
+               } else if (pContext->ch_num == 1 /*for 5.1 ch process*/) {
+                    if (pContext->gvxdata.counter == 0) {
+                        for (int i = 0; i < 6; i++) {
+                            pContext->ppDataIn[i][sampleCount] = (int32_t(*in++)) << 16;
+                        }
+                        for (int i = 6; i < 12; i++) {
+                            pContext->ppDataIn[i][sampleCount] = 0;
+                        }
+                        //channel order C/L/R/Ls/Rs/LFE
+                        pContext->ppMappedInCh[0] = pContext->ppDataIn[2];
+                        pContext->ppMappedInCh[1] = pContext->ppDataIn[0];
+                        pContext->ppMappedInCh[2] = pContext->ppDataIn[1];
+                        pContext->ppMappedInCh[3] = pContext->ppDataIn[4];
+                        pContext->ppMappedInCh[4] = pContext->ppDataIn[5];
+                        pContext->ppMappedInCh[5] = pContext->ppDataIn[3];
+                        pContext->ppMappedInCh[6] = pContext->ppDataIn[6];
+                        pContext->ppMappedInCh[7] = pContext->ppDataIn[7];
+                        pContext->ppMappedInCh[8] = pContext->ppDataIn[8];
+                        pContext->ppMappedInCh[9] = pContext->ppDataIn[9];
+                        pContext->ppMappedInCh[10] = pContext->ppDataIn[10];
+                        pContext->ppMappedInCh[11] = pContext->ppDataIn[11];
+                        actual_ch = 6;
+                    } else {
+                        pContext->ppDataIn[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
+                        pContext->ppDataIn[1][sampleCount] = (int32_t(*in++)) << 16;
+                        for (int i = 2; i < 12; i++) {
+                            pContext->ppDataIn[i][sampleCount] = 0;
+                        }
+                        for (int i = 0; i < 12; i++) {
+                            pContext->ppMappedInCh[i] = pContext->ppDataIn[i];
+                        }
+                        actual_ch = 2;
+                    }
+                }
             }
             if (pContext->gvxdata.counter == 0)
-                (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
+                (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh,actual_ch);
             else
                (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
             for (int sampleCount = 0;sampleCount < 256; sampleCount++) {
@@ -3407,9 +3754,6 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
                 *out++  = pContext->ppMappedOutCh[1][sampleCount] >> 16;
             }
         }
-        pContext->gvxdata.counter += 1;
-        if (pContext->gvxdata.counter >= 2)
-            pContext->gvxdata.counter = 0;
     }
     return 0;
 }
@@ -3420,7 +3764,6 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
     vxContext * pContext = (vxContext *)self;
     effect_param_t *p;
     int voffset;
-
     if (pContext == NULL || pContext->state == VIRTUALX_STATE_UNINITIALIZED)
         return -EINVAL;
     switch (cmdCode) {
@@ -3451,13 +3794,18 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         if (pContext->state != VIRTUALX_STATE_ACTIVE)
             return -ENOSYS;
         pContext->state = VIRTUALX_STATE_INITIALIZED;
+        property_set("media.libplayer.dtsMulChPcm","false");
         *(int *)pReplyData = 0;
         break;
     case EFFECT_CMD_GET_PARAM:
         if (pCmdData == NULL ||
             cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t)) ||
             pReplyData == NULL || replySize == NULL ||
-            *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t)))
+            (*replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t)) &&
+            *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 8 * sizeof(float)) &&
+            *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 10 * sizeof(float)) &&
+            *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 6 * sizeof(float)) &&
+            *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 3 * sizeof(float))))
             return -EINVAL;
         p = (effect_param_t *)pCmdData;
         memcpy(pReplyData, pCmdData, sizeof(effect_param_t) + p->psize);
@@ -3470,11 +3818,19 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         break;
     case EFFECT_CMD_SET_PARAM:
         if (pCmdData == NULL ||
-            cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t)) ||
-            pReplyData == NULL || replySize == NULL || *replySize != sizeof(int32_t))
-            return -EINVAL;
+            (cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + sizeof(uint32_t)) &&
+            cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 8 * sizeof(float)) &&
+            cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 10 * sizeof(float)) &&
+            cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 6 * sizeof(float)) &&
+            cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 3 * sizeof(float))) ||
+            pReplyData == NULL || replySize == NULL || *replySize != sizeof(int32_t)) {
+                ALOGE("%s: EFFECT_CMD_SET_PARAM cmd size error!", __FUNCTION__);
+                return -EINVAL;
+        }
         p = (effect_param_t *)pCmdData;
-        if (p->psize != sizeof(uint32_t) || p->vsize != sizeof(uint32_t)) {
+        if (p->psize != sizeof(uint32_t) || (p->vsize != sizeof(uint32_t) && p->vsize != 8 * sizeof(float) &&
+            p->vsize != 10 * sizeof(float) && p->vsize != 6 * sizeof(float) && p->vsize != 3 * sizeof(float))) {
+            ALOGE("%s: EFFECT_CMD_SET_PARAM value size error!", __FUNCTION__);
             *(int32_t *)pReplyData = -EINVAL;
             break;
         }
@@ -3527,13 +3883,16 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
         return -EINVAL;
     }
     memset(pContext, 0, sizeof(vxContext));
-
+    memcpy((void *) & pContext->gvxdata.DC_usr_cfg[0], (void *) & default_DC_cfg, sizeof(pContext->gvxdata.DC_usr_cfg[0]));
+    memcpy((void *) & pContext->gvxdata.TS_usr_cfg[0], (void *) & default_TS_cfg, sizeof(pContext->gvxdata.TS_usr_cfg[0]));
+    memcpy((void *) & pContext->gvxdata.vxcfg,(void *) & default_Virtualxcfg,sizeof(pContext->gvxdata.vxcfg));
     if (Virtualx_load_ini_file(pContext) < 0) {
         ALOGE("%s: Load INI File faied, use default param", __FUNCTION__);
         pContext->gvxdata.enable = 1;
     }
 
     if (Virtualx_load_lib(pContext) < 0) {
+        property_set("media.libplayer.dtsMulChPcm","false");
         ALOGE("%s: Load Library File faied", __FUNCTION__);
     }
 
@@ -3552,7 +3911,6 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
 int VirtualxLib_Release(effect_handle_t handle)
 {
     vxContext * pContext = (vxContext *)handle;
-    int ret = -1;
     if (pContext == NULL)
         return -EINVAL;
 
@@ -3560,9 +3918,9 @@ int VirtualxLib_Release(effect_handle_t handle)
         ALOGE("miss mbhl process");
         //return ret;    //how to process here
     }
-
     Virtualx_release(pContext);
     unload_Virtualx_lib(pContext);
+    property_set("media.libplayer.dtsMulChPcm","false");
     pContext->state = VIRTUALX_STATE_UNINITIALIZED;
 
     delete pContext;
