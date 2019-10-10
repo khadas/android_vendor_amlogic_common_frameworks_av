@@ -1,0 +1,28 @@
+cc_library_static {
+    name: "libregistermsext_aml",
+    srcs: [
+	"register.cpp",
+	"AmSharedLibrary.cpp",
+	"AmLoadAmlogicPlayers.cpp",
+	"AmSupportModules.cpp"
+    ],
+
+    cflags: [
+        "-Werror",
+        "-Wall",
+    ],
+
+    shared_libs: [
+        "libbinder",
+        "libcutils",
+        "libdl",
+        "libutils",
+        "liblog",
+    ],
+
+    include_dirs: [
+        "frameworks/av/media/libstagefright/include",
+        "vendor/amlogic/common/frameworks/av/mediaextconfig/include",
+    ],
+}
+
