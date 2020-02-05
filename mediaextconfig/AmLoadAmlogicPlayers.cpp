@@ -28,6 +28,8 @@ namespace android
 static sp<AmSharedLibrary> gLibAmlMedia;
 static sp<AmSharedLibrary> gLibAmNuPlayer;
 static sp<AmSharedLibrary> gLibDrmPlayer;
+static sp<AmSharedLibrary> gLibAmMediaPlayer;
+static sp<AmSharedLibrary> gLibCTCMediaPlayer;
 bool  LoadAndInitAmlogicMediaFactory(void)
 {
     int err;
@@ -107,6 +109,58 @@ bool  LoadAndInitAmlogicMediaFactory(void)
         ALOGE("load libDrmPlayer.so for amlogicmedia failed:%s", gLibDrmPlayer->lastError());
         gLibDrmPlayer.clear();
     }
+
+////////////////////////////gLibCTCMediaPlayer
+    String8 name_ctcmediaplayer("libCTC_MediaProcessor.so");
+    gLibCTCMediaPlayer = new AmSharedLibrary(name_ctcmediaplayer);
+    if (gLibCTCMediaPlayer != NULL) {
+        typedef int (*init_fun)(void);
+
+        init_fun init =
+            (init_fun)gLibCTCMediaPlayer->lookup("_ZN7android32AmlogicCTCMediaPlayerFactoryInitEv");
+
+        if (init != NULL) {
+            err = init();
+            if (err != OK) {
+                 ALOGE("AmlogicCTCMediaPlayerFactory init failed: %d", err);
+                 gLibCTCMediaPlayer.clear();
+             }
+        } else {
+            ALOGE("AmlogicCTCMediaPlayerFactory failed! %s", gLibCTCMediaPlayer->lastError());
+            gLibCTCMediaPlayer.clear();
+        }
+    } else {
+        ALOGE("load libCTC_MediaProcessor.so for CTCMediaPlayer failed! %s", gLibCTCMediaPlayer->lastError());
+        gLibCTCMediaPlayer.clear();
+    }
+
+
+////////////////////////////gLibAmMediaPlayer
+    String8 name_ammediaplayer("libAmIptvMedia.so");
+    gLibAmMediaPlayer = new AmSharedLibrary(name_ammediaplayer);
+    if (gLibAmMediaPlayer != NULL) {
+        typedef int (*init_fun)(void);
+
+        init_fun init =
+            (init_fun)gLibAmMediaPlayer->lookup("_ZN7android24AmMediaPlayerFactoryInitEv");
+
+        if (init != NULL) {
+            err = init();
+            if (err) {
+                 ALOGE("AmMediaPlayerFactory failed:%s", gLibAmMediaPlayer->lastError());
+                 gLibAmMediaPlayer.clear();
+             }
+        } else {
+            ALOGE("AmMediaPlayerFactory failed:%s", gLibAmMediaPlayer->lastError());
+            gLibAmMediaPlayer.clear();
+        }
+
+
+    } else {
+        ALOGE("load libAmIptvMedia.so for amlogicmedia failed:%s", gLibAmMediaPlayer->lastError());
+        gLibAmMediaPlayer.clear();
+    }
+
     return true;
 }
 
