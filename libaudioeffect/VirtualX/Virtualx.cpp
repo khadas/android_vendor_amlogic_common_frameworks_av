@@ -42,8 +42,8 @@
 
 extern "C" {
 
-#define MODEL_SUM_DEFAULT_PATH "/vendor/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/vendor/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
+#define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"
+#define AUDIO_EFFECT_DEFAULT_PATH "/odm/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 #define DTS_VIRTUALX_FRAME_SIZE 256
 #define DTS_FXP32(val, x) (int32_t)(val * ((int64_t)1L << (32 - x)))
 

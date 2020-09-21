@@ -52,8 +52,8 @@ LVCS_MemTab_t           CS_MemTab;          /* Memory table */
 LVCS_Capabilities_t     CS_Capabilities;    /* Initial capabilities */
 static pthread_mutex_t audio_vir_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define MODEL_SUM_DEFAULT_PATH "/vendor/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/vendor/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
+#define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"
+#define AUDIO_EFFECT_DEFAULT_PATH "/odm/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
 // effect_handle_t interface implementation for Virtualsurround effect
 extern const struct effect_interface_s VirtualsurroundInterface;
