@@ -1,10 +1,10 @@
 cc_library_static {
     name: "libregistermsext_aml",
     srcs: [
-	"register.cpp",
-	"AmSharedLibrary.cpp",
-	"AmLoadAmlogicPlayers.cpp",
-	"AmSupportModules.cpp"
+    "register.cpp",
+    "AmSharedLibrary.cpp",
+    "AmLoadAmlogicPlayers.cpp",
+    "AmSupportModules.cpp"
     ],
 
     cflags: [

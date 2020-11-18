@@ -1,0 +1,55 @@
+// AV  media utils extension
+// ########################################################
+
+cc_library_shared  {
+    name: "libmediavendorext",
+
+    srcs: [
+         "MediaVendorExt.cpp",
+    ],
+
+    shared_libs: [
+         "libhidlbase",
+         "liblog",
+         "libui",
+         "libgui",
+         "libcutils",
+         "libutils",
+         "libnativewindow",
+         "libcrypto",
+         "android.hardware.media.omx@1.0",
+         "libhidlbase",
+         "libhidlmemory",
+         "android.hidl.allocator@1.0",
+         "android.hidl.memory@1.0",
+         "libstagefright_foundation",
+         "libstagefright_omx",
+    ],
+
+    header_libs: [
+        "libmedia_headers",
+        "media_plugin_headers",
+        "libstagefright_headers",
+    ],
+
+    export_header_lib_headers: [
+        "media_plugin_headers",
+        "libstagefright_headers",
+    ],
+
+    export_include_dirs: [
+         "include",
+    ],
+
+    include_dirs: [
+         "frameworks/av/media/ndk/include",
+         "frameworks/av/media/libaudioclient/include",
+         /* TODO: remove this */
+         "hardware/amlogic/media/ammediaext",
+    ],
+
+    cflags: [
+        "-Wno-multichar",
+        "-Werror",
+    ],
+}

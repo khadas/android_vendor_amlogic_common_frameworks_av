@@ -16,6 +16,6 @@
 #include "AmSupportModules.h"
 void registerExtensions()
 {
-	android::LoadAndInitAmlogicSupport();
+    android::LoadAndInitAmlogicSupport();
 }
 
