@@ -20,6 +20,10 @@ cc_library_static {
         "liblog",
     ],
 
+    header_libs: [
+        "libstagefright_foundation_headers",
+    ],
+
     include_dirs: [
         "frameworks/av/media/libstagefright/include",
         "vendor/amlogic/common/frameworks/av/mediaextconfig/include",
