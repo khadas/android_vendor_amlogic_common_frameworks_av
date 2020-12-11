@@ -17,8 +17,10 @@
 
 #define TABLE_LENGTH 128
 
+#ifndef __LP64__
 typedef long long int64_t;
 typedef unsigned long long uint64_t;
+#endif
 //typedef long int32_t;
 //typedef unsigned long uint32_t;
 typedef short int16_t;
