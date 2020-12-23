@@ -8,6 +8,8 @@ cc_library_shared  {
          "MediaVendorExt.cpp",
     ],
 
+    system_ext_specific: true,
+
     shared_libs: [
          "libhidlbase",
          "liblog",
