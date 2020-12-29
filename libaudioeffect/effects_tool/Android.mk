@@ -7,6 +7,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE    := AudioEffectTool
 
+LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_SRC_FILES := main.cpp
 
 LOCAL_SHARED_LIBRARIES := \
@@ -30,6 +31,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE    := TuningTool
 
+LOCAL_SYSTEM_EXT_MODULE := true
 LOCAL_SRC_FILES := main2.cpp
 
 LOCAL_SHARED_LIBRARIES := \
