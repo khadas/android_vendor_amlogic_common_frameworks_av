@@ -32,7 +32,6 @@
 #include <media/AudioEffect.h>
 #include <media/AudioSystem.h>
 #include <media/AudioParameter.h>
-
 #include "Virtualx.h"
 
 #ifdef LOG
@@ -226,12 +225,22 @@ Virtualx_param_t gVirtualxParam[] = {
     {{0, 4, 4}, DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32, {-24}},
     {{0, 4, 4}, DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32, {0}},
     {{0, 4, 4}, DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32,{0}},
+    {{0, 4, 4}, DTS_PARAM_AEQ_ENABLE_I32,{0}},
+    {{0, 4, 4}, DTS_PARAM_AEQ_DISCARD_I32,{0}},
+    {{0, 4, 4}, DTS_PARAM_AEQ_INPUT_GAIN_I16,{1}},
+    {{0, 4, 4}, DTS_PARAM_AEQ_OUTPUT_GAIN_I16,{1}},
+    {{0, 4, 4}, DTS_PARAM_AEQ_BYPASS_GAIN_I16,{1}},
+    {{0, 4, 4}, DTS_PARAM_AEQ_LR_LINK_I32,{1}},
+    {{0, 4, 20}, DTS_PARAM_AEQ_BAND_Fre,{1}}, // band is 5 just for example
+    {{0, 4, 20}, DTS_PARAM_AEQ_BAND_Gain,{1}},
+    {{0, 4, 20}, DTS_PARAM_AEQ_BAND_Q,{1}},
+    {{0, 4, 20}, DTS_PARAM_AEQ_BAND_type,{1}},
+    {{0, 4, 4}, DTS_PARAM_CHANNEL_NUM, {1}},
     {{0, 4, 4}, VIRTUALX_PARAM_ENABLE, {1}},
     {{0, 4, 4}, VIRTUALX_PARAM_DIALOGCLARTY_MODE, {1}},
     {{0, 4, 4}, VIRTUALX_PARAM_SURROUND_MODE, {1}},
-    {{0, 4, 4}, VIRTUALX_PARAM_COUNTER,{1}},
     {{0, 4, 4}, AUDIO_DTS_PARAM_TYPE_NONE,{1}},
-    {{0, 4, 32}, AUDIO_DTS_PARAM_TYPE_TRU_SURROUND,{1}},
+    {{0, 4, 32},AUDIO_DTS_PARAM_TYPE_TRU_SURROUND,{1}},
     {{0, 4, 32}, AUDIO_DTS_PARAM_TYPE_CC3D,{1}},
     {{0, 4, 40},AUDIO_DTS_PARAM_TYPE_TRU_BASS,{1}},
     {{0, 4, 32},AUDIO_DTS_PARAM_TYPE_TRU_DIALOG,{1}},
@@ -1577,6 +1586,104 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             LOG("rc is %d\n",rc);
             return 0;
+        case DTS_PARAM_AEQ_ENABLE_I32:
+             if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: aeq  enable gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("aeq enable is %d",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_AEQ_DISCARD_I32:
+             if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: aeq  discard gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("aeq diacard is %d",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_AEQ_INPUT_GAIN_I16:
+            if (gParamScale < 0 || gParamScale > 1.0) {
+                LOG("Vritualx: aeq input gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("aeq input gain is %f, 16bit normalized data ----> 0x%08X\n",
+                gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
+            return 0;
+        case DTS_PARAM_AEQ_OUTPUT_GAIN_I16:
+            if (gParamScale < 0 || gParamScale > 1.0) {
+                LOG("Vritualx: aeq output gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("aeq output gain is %f, 16bit normalized data ----> 0x%08X\n",
+                gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
+            return 0;
+        case DTS_PARAM_AEQ_BYPASS_GAIN_I16:
+            if (gParamScale < 0 || gParamScale > 1.0) {
+                LOG("Vritualx: aeq bypass gain gParamValue = %f invalid\n", gParamScale);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].f = gParamScale;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("aeq bypass gain is %f, 16bit normalized data ----> 0x%08X\n",
+                gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
+            return 0;
+        case DTS_PARAM_AEQ_LR_LINK_I32:
+            if (gParamValue < 0 || gParamValue > 1) {
+                LOG("Vritualx: aeq lr link gParamValue = %d invalid\n", gParamValue);
+                return -1;
+            }
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("aeq lr link flag is %d",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case DTS_PARAM_AEQ_BAND_Fre:
+            for (int i = 0; i < 5; i++) {
+                gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                    i, gParaRange[i], FLOAT2INT(gParaRange[i]));
+            }
+            rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("rc is %d\n",rc);
+            return 0;
+        case DTS_PARAM_AEQ_BAND_Gain:
+            for (int i = 0; i < 5; i++) {
+                gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                    i, gParaRange[i], FLOAT2INT(gParaRange[i]));
+            }
+            rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("rc is %d\n",rc);
+            return 0;
+        case DTS_PARAM_AEQ_BAND_Q:
+            for (int i = 0; i < 5; i++) {
+                gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                    i, gParaRange[i], FLOAT2INT(gParaRange[i]));
+            }
+            rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("rc is %d\n",rc);
+            return 0;
+        case DTS_PARAM_AEQ_BAND_type:
+            for (int i = 0; i < 5; i++) {
+                gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                    i, gParaRange[i], FLOAT2INT(gParaRange[i]));
+            }
+            rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("rc is %d\n",rc);
+            return 0;
+        case DTS_PARAM_CHANNEL_NUM:
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
+            LOG("set dts channel num is %d",gVirtualxParam[gParamIndex].v);
+            return 0;
     default:
         LOG("Virtualx: ParamIndex = %d invalid\n", gParamIndex);
         return -1;
@@ -2112,6 +2219,31 @@ void PrintHelp(int gEffectIndex, char *name)
         LOG("ParamIndex: %d -> Loudness Control Mode\n", (int)DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32);
         LOG("ParamValue: 0 ~ 4 \n");
         LOG("****************************************************************************\n\n");
+        LOG("------------DTSEQ-------ParamIndex(from %d to %d)--\n",
+            (int)DTS_PARAM_AEQ_ENABLE_I32, (int)DTS_PARAM_AEQ_BAND_type);
+        LOG("ParamIndex: %d -> AEQ  Enable\n", (int)DTS_PARAM_AEQ_ENABLE_I32);
+        LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+        LOG("ParamIndex: %d -> AEQ  discard\n", (int)DTS_PARAM_AEQ_DISCARD_I32);
+        LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+        LOG("ParamIndex: %d -> AEQ  input gain\n", (int)DTS_PARAM_AEQ_INPUT_GAIN_I16);
+        LOG("ParamScale: 0.000 ~ 1.0\n");
+        LOG("ParamIndex: %d -> AEQ  output gain\n", (int)DTS_PARAM_AEQ_OUTPUT_GAIN_I16);
+        LOG("ParamScale: 0.000 ~ 1.0\n");
+        LOG("ParamIndex: %d -> AEQ  bypass gain\n", (int)DTS_PARAM_AEQ_BYPASS_GAIN_I16);
+        LOG("ParamScale: 0.000 ~ 1.0\n");
+        LOG("ParamIndex: %d -> AEQ  LR Link\n", (int)DTS_PARAM_AEQ_LR_LINK_I32);
+        LOG("ParamValue: 0 -> Disable   1 -> Enable\n");
+        LOG("ParamIndex: %d -> AEQ  fre\n", (int)DTS_PARAM_AEQ_BAND_Fre);
+        LOG("ParamValue: 20 ~ 20000\n");
+        LOG("ParamIndex: %d -> AEQ  band gain\n", (int)DTS_PARAM_AEQ_BAND_Gain);
+        LOG("ParamValue: -12db ~ 12db\n");
+        LOG("ParamIndex: %d -> AEQ  band Q\n", (int)DTS_PARAM_AEQ_BAND_Q);
+        LOG("ParamValue: 0.25 ~ 16\n");
+        LOG("ParamIndex: %d -> AEQ  band type\n", (int)DTS_PARAM_AEQ_BAND_type);
+        LOG("ParamValue: 0:Traditional | 1:LowShelf | 2:High Shelf | 9:Null ]\n");
+        LOG("ParamIndex: %d -> DTS source channel num \n", (int)DTS_PARAM_CHANNEL_NUM);
+        LOG("ParamValue: 2 | 6");
+        LOG("****************************************************************************\n\n");
     } else if (gEffectIndex == EFFECT_DBX) {
         LOG("**********************************DBX***************************************\n");
         LOG("DBX EffectIndex: %d\n", (int)EFFECT_DBX);
@@ -2237,7 +2369,9 @@ int main(int argc,char **argv)
             || gParamIndex == DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32 || gParamIndex == DTS_PARAM_TSX_LPR_GAIN_I32
             || gParamIndex == DTS_PARAM_TSX_CENTER_GAIN_I32 || gParamIndex == DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32
             || gParamIndex == DTS_PARAM_TSX_FRNT_CTRL_I32 || gParamIndex == DTS_PARAM_TSX_SRND_CTRL_I32
-            || gParamIndex == DTS_PARAM_VX_DC_CONTROL_I32 || gParamIndex == DTS_PARAM_VX_DEF_CONTROL_I32)  {
+            || gParamIndex == DTS_PARAM_VX_DC_CONTROL_I32 || gParamIndex == DTS_PARAM_VX_DEF_CONTROL_I32
+            || gParamIndex == DTS_PARAM_AEQ_INPUT_GAIN_I16 || gParamIndex == DTS_PARAM_AEQ_OUTPUT_GAIN_I16
+            || gParamIndex == DTS_PARAM_AEQ_BYPASS_GAIN_I16)  {
             sscanf(argv[3], "%f", &gParamScale);
             LOG("EffectIndex:%d, ParamIndex:%d, ParamScale:%f\n", gEffectIndex, gParamIndex, gParamScale);
         } else if (gParamIndex == AUDIO_DTS_PARAM_TYPE_TRU_SURROUND || gParamIndex == AUDIO_DTS_PARAM_TYPE_CC3D ||
@@ -2258,6 +2392,12 @@ int main(int argc,char **argv)
             }
         } else if (gParamIndex == AUDIO_DTS_PARAM_TYPE_TRU_VOLUME) {
             for (int i = 0; i < 3; i++) {
+                sscanf(argv[i + 3], "%f", &grange[i]);
+                LOG("EffectIndex:%d, ParamIndex:%d, grange:%f\n", gEffectIndex, gParamIndex, grange[i]);
+            }
+        } else if (gParamIndex == DTS_PARAM_AEQ_BAND_Fre || gParamIndex == DTS_PARAM_AEQ_BAND_Gain ||
+            gParamIndex == DTS_PARAM_AEQ_BAND_Q || gParamIndex == DTS_PARAM_AEQ_BAND_type) {
+            for (int i = 0; i < 5; i++) {
                 sscanf(argv[i + 3], "%f", &grange[i]);
                 LOG("EffectIndex:%d, ParamIndex:%d, grange:%f\n", gEffectIndex, gParamIndex, grange[i]);
             }
@@ -2470,7 +2610,9 @@ Retry_input:
                 || gParamIndex == DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32 || gParamIndex == DTS_PARAM_TSX_LPR_GAIN_I32
                 || gParamIndex == DTS_PARAM_TSX_CENTER_GAIN_I32 || gParamIndex == DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32
                 || gParamIndex == DTS_PARAM_TSX_FRNT_CTRL_I32 || gParamIndex == DTS_PARAM_TSX_SRND_CTRL_I32
-                || gParamIndex == DTS_PARAM_VX_DC_CONTROL_I32 || gParamIndex == DTS_PARAM_VX_DEF_CONTROL_I32)  {
+                || gParamIndex == DTS_PARAM_VX_DC_CONTROL_I32 || gParamIndex == DTS_PARAM_VX_DEF_CONTROL_I32
+                || gParamIndex == DTS_PARAM_AEQ_INPUT_GAIN_I16 || gParamIndex == DTS_PARAM_AEQ_OUTPUT_GAIN_I16
+                || gParamIndex == DTS_PARAM_AEQ_BYPASS_GAIN_I16)  {
                 if (GetFloatData(&gParamScale) < 0)
                     goto Retry_input;
                 LOG("EffectIndex:%d, ParamIndex:%d, ParamScale:%f\n", gEffectIndex, gParamIndex, gParamScale);

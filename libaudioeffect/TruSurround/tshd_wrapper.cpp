@@ -274,7 +274,7 @@ int SRS_get_ini_file(char *ini_name, int size)
     char model_name[50] = {0};
     IniParser* pIniParser = NULL;
     const char *ini_value = NULL;
-    const char *filename = "/tvconfig/model/model_sum.ini";
+    const char *filename = "/odm/model/model_sum.ini";
 
     SRS_get_model_name(model_name, sizeof(model_name));
     pIniParser = new IniParser();
@@ -1298,6 +1298,11 @@ int SRS_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t *
     return 0;
 }
 
+int dump(SRSContext *pContext __unused)
+{
+    return 0;
+}
+
 int SRS_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         void *pCmdData, uint32_t *replySize, void *pReplyData)
 {
@@ -1372,6 +1377,9 @@ int SRS_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
     case EFFECT_CMD_SET_DEVICE:
     case EFFECT_CMD_SET_VOLUME:
     case EFFECT_CMD_SET_AUDIO_MODE:
+        break;
+    case EFFECT_CMD_DUMP:
+        dump(pContext);
         break;
     default:
         ALOGE("%s: invalid command %d", __FUNCTION__, cmdCode);

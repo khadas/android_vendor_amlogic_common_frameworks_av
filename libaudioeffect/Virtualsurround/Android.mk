@@ -10,6 +10,7 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl \
     libutils \
+    libaudioutils \
     libamaudioutils
 
 LOCAL_C_INCLUDES := \
@@ -18,6 +19,7 @@ LOCAL_C_INCLUDES := \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
     system/media/audio/include \
+    system/media/audio_utils/include \
     frameworks/av/media/libeffects/lvm/lib/StereoWidening/lib \
     frameworks/av/media/libeffects/lvm/lib/StereoWidening/src \
     frameworks/av/media/libeffects/lvm/lib/Common/lib \
@@ -33,6 +35,10 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_LDLIBS   +=  -llog
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
+endif
+
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30 && echo OK), OK)
+LOCAL_CFLAGS += -DUSE_LVCS_FLOAT_PROCESS
 endif
 
 LOCAL_MODULE_RELATIVE_PATH := soundfx

@@ -13,14 +13,12 @@
 
 #include <cutils/log.h>
 #include "AudioFade.h"
-
+#include <stdio.h>
 
 #define TABLE_LENGTH 128
 
-#ifndef __LP64__
 typedef long long int64_t;
 typedef unsigned long long uint64_t;
-#endif
 //typedef long int32_t;
 //typedef unsigned long uint32_t;
 typedef short int16_t;
@@ -210,7 +208,6 @@ int fadeNext(fadeMethod fade_method, int t, int b, int c, int d)
     }
 }
 
-
 int AudioFadeBuf(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples)
 {
     //int** outbuf;
@@ -245,6 +242,54 @@ int AudioFadeBuf(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples)
         }
         for (j = 0; j < nchannels; j++) {
             tmp32 = pOut16bit[i * nchannels + j] * pAudFade->mCurrentVolume;
+            pOut16bit[i * nchannels + j] = tmp32 >> 16;
+        }
+    }
+    // ALOGI("mCurrentVolume=%d\n",pAudFade->mCurrentVolume);
+    return AUD_FADE_OK;
+}
+
+int AudioFadeBufferdelay(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples, int starsample)
+{
+    //int** outbuf;
+    int16_t * pOut16bit;
+    int32_t tmp32;
+    unsigned int nchannels;
+    unsigned int i = starsample;
+    unsigned int j;
+    int delta = 0;
+
+    // currently fix to 16bits
+    pOut16bit = (int16_t *)rawBuf;
+    nchannels = pAudFade->channels;
+
+    pAudFade->mfadeFramesTotal = ((long long)pAudFade->mfadeTimeTotal * pAudFade->samplingRate) / 1000;
+
+    delta = pAudFade->mTargetVolume - pAudFade->mStartVolume;
+    ALOGI("%s,mfadeFramesTotal=%d delta=%d,samplingRate = %d,channels = %d,format = %d\n", __FUNCTION__,
+          pAudFade->mfadeFramesTotal,
+          delta,
+          pAudFade->samplingRate,
+          pAudFade->channels,
+          pAudFade->format);
+
+    for (unsigned int m = 0; m < i; m++) {
+        for (j = 0; j < nchannels; j++) {
+            pOut16bit[m * nchannels + j] = 0;
+        }
+    }
+
+    for (i = starsample; i < nSamples; i++) {
+        if (pAudFade->mfadeFramesTotal == 0) {
+            pAudFade->mCurrentVolume = pAudFade->mTargetVolume;
+        } else if (pAudFade->mfadeFramesUsed < pAudFade->mfadeFramesTotal) {
+            // caculate next volume
+            pAudFade->mCurrentVolume = fadeNext(pAudFade->mfadeMethod, pAudFade->mfadeFramesUsed,
+                                                pAudFade->mStartVolume, delta, pAudFade->mfadeFramesTotal - 1);
+            pAudFade->mfadeFramesUsed++;
+        }
+        for (j = 0; j < nchannels; j++) {
+            tmp32 = (pOut16bit[i * nchannels + j]) * pAudFade->mCurrentVolume;
             pOut16bit[i * nchannels + j] = tmp32 >> 16;
         }
     }

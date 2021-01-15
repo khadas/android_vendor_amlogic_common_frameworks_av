@@ -34,7 +34,6 @@
 #include <media/AudioParameter.h>
 #include <string.h>
 
-
 #ifdef LOG
 #undef LOG
 #endif

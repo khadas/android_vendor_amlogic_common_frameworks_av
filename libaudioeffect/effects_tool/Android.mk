@@ -18,6 +18,12 @@ LOCAL_SHARED_LIBRARIES := \
     libmedia_helper \
     libmediaplayerservice \
 
+# libaudiofoundation support only R and above
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30 && echo OK), OK)
+LOCAL_SHARED_LIBRARIES += \
+    libaudiofoundation
+endif
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../VirtualX \
 
@@ -41,5 +47,11 @@ LOCAL_SHARED_LIBRARIES := \
     libmedia \
     libmedia_helper \
     libmediaplayerservice \
+
+# libaudiofoundation support only R and above
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30 && echo OK), OK)
+LOCAL_SHARED_LIBRARIES += \
+    libaudiofoundation
+endif
 
 include $(BUILD_EXECUTABLE)

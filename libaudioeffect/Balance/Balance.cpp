@@ -434,6 +434,11 @@ int Balance_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer
     return 0;
 }
 
+int dump(BalanceContext *pContext __unused)
+{
+    return 0;
+}
+
 int Balance_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         void *pCmdData, uint32_t *replySize, void *pReplyData)
 {
@@ -508,6 +513,9 @@ int Balance_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
     case EFFECT_CMD_SET_DEVICE:
     case EFFECT_CMD_SET_VOLUME:
     case EFFECT_CMD_SET_AUDIO_MODE:
+        break;
+    case EFFECT_CMD_DUMP:
+        dump(pContext);
         break;
     default:
         ALOGE("%s: invalid command %d", __FUNCTION__, cmdCode);

@@ -38,14 +38,20 @@
 #include "IniParser.h"
 #include "Virtualx.h"
 #include <pthread.h>
-#include <cutils/properties.h>
 
 extern "C" {
+
+#include "../Utility/AudioFade.h"
 
 #define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"
 #define AUDIO_EFFECT_DEFAULT_PATH "/odm/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 #define DTS_VIRTUALX_FRAME_SIZE 256
-#define DTS_FXP32(val, x) (int32_t)(val * ((int64_t)1L << (32 - x)))
+#define FXP32(val, x) (int32_t)(val * ((int64_t)1L << (32 - x)))
+#define FXP16(val, x) (int32_t)(val * (1L << (16 - x)))
+#define GAIN_MAX 1073741824
+#define GAIN_MIN 1073742
+#define MAX(acc, max) ((acc) = (acc) > max ? max : (acc))
+#define MIN(acc, min) ((acc) = (acc) < min ? min : (acc))
 
 #if defined(__LP64__)
 #define LIBVX_PATH_A "/vendor/lib64/soundfx/libvx.so"
@@ -79,8 +85,10 @@ enum Virtualx_state_e {
 typedef struct Virtualxapi_s {
     int (*VX_init)(void *);
     int (*VX_release)(void);
-    int (*VX_process)(int32_t **in,int32_t **out,int ch);
+    int (*VX_process)(int32_t **in,int32_t **out);
+    int (*Truvolume_process)(int32_t **in,int32_t **out);
     int (*MBHL_process)(int32_t **in,int32_t **out);
+    int (*VX_reset)(void);
     int (*setvxlib1_enable)(int32_t value);
     int (*getvxlib1_enable)(int32_t *value);
     int (*setvxlib1_inmode)(int32_t value);
@@ -212,6 +220,16 @@ typedef struct Virtualxapi_s {
     int (*setlc_inmode)(int32_t value);
     int (*settbhd_FilterDesign)(int32_t spksize,float basslvl, float hpratio,float extbass);
     int (*setmbhl_FilterDesign)(float lowCrossFreq,float midCrossFreq);
+    int (*seteq_enable)(int32_t value);
+    int (*geteq_enable)(int32_t *value);
+    int (*seteq_discard)(int32_t value);
+    int (*seteq_inputG)(int32_t value);
+    int (*geteq_inputG)(int32_t *value);
+    int (*seteq_outputG)(int32_t value);
+    int (*geteq_outputG)(int32_t *value);
+    int (*seteq_bypassG)(int32_t value);
+    int (*geteq_bypassG)(int32_t *value);
+    int (*seteq_band)(int32_t value,void *pValue);
 } Virtualxapi;
 
 typedef struct vxlib_param_s {
@@ -245,6 +263,16 @@ typedef struct vxdefinition_param_s {
     int32_t    enable;
     float      level;
 } vxdefinition_param;
+
+typedef struct aeq_param_s {
+    int32_t    aeq_enable;
+    int32_t    aeq_discard;
+    float      aeq_inputgain;
+    float      aeq_outputgain;
+    float      aeq_bypassgain;
+    int32_t    aeq_bandnum;
+    int32_t    aeq_fc[12];
+} aeq_param;
 
 typedef struct tbhdx_param_s {
     int32_t    enable;
@@ -321,11 +349,12 @@ typedef struct Virtualxcfg_s {
     vxlib_param               vxlib;
     mbhl_param                mbhl;
     Truvolume_param           Truvolume;
+    aeq_param                 eqparam;
 } Virtualxcfg;
 
 static Virtualxcfg default_Virtualxcfg {
     {1,0,0,1.0,1.0},{1,1.0,1.0,1.0,100,0,1.0,1.0,1.0,1.0,5,50,500,500,8,20,0,7,15,5,250,4.0,0.501,1.0,250,4.0,0.501,1.0,250,4.0,0.501,1.0,},
-    {1,-24,1},
+    {1,-24,0},{1,0,1.0,1.0,1.0,5,{100,300,1000,3000,10000}},
 };
 
 typedef struct vxdata_s {
@@ -333,41 +362,42 @@ typedef struct vxdata_s {
         int32_t    vxlib_enable;
         int32_t    input_mode;
         int32_t    output_mode;
-        float      headroom_gain;
-        float      output_gain;
+        int32_t    headroom_gain;
+        int32_t    output_gain;
         int32_t    vxtrusurround_enable;
         int32_t    upmixer_enable;
         int32_t    horizontaleffect_control;
-        float      frontwidening_control;
-        float      surroundwidening_control;
-        float      phantomcenter_mixlevel;
-        float      heightmix_coeff;
-        float      center_gain;
+        int32_t    frontwidening_control;
+        int32_t    surroundwidening_control;
+        int32_t    phantomcenter_mixlevel;
+        int32_t    heightmix_coeff;
+        int32_t    center_gain;
         int32_t    height_discard;
         int32_t    discard;
         int32_t    heightupmix_enable;
         int32_t    vxdialogclarity_enable;
-        float      vxdialogclarity_level;
+        int32_t    vxdialogclarity_level;
         int32_t    vxdefinition_enable;
-        float      vxdefinition_level;
+        int32_t    vxdefinition_level;
         int32_t    tbhdx_enable;
         int32_t    monomode_enable;
         int32_t    speaker_size;
-        float      tmporal_gain;
-        float      max_gain;
+        int32_t    tmporal_gain;
+        int32_t    max_gain;
         int32_t    hpfo;//high pass filter order
         int32_t    highpass_enble;
+        int32_t    tbhdx_processdiscard;
         int32_t    mbhl_enable;
-        float      mbhl_bypassgain;
-        float      mbhl_reflevel;
-        float      mbhl_volume;
+        int32_t    mbhl_bypassgain;
+        int32_t    mbhl_reflevel;
+        int32_t    mbhl_volume;
         int32_t    mbhl_volumesttep;
         int32_t    mbhl_balancestep;
-        float      mbhl_outputgain;
-        float      mbhl_boost;
-        float      mbhl_threshold;
-        float      mbhl_slowoffset;
-        float      mbhl_fastattack;
+        int32_t    mbhl_outputgain;
+        int32_t    mbhl_boost;
+        int32_t    mbhl_threshold;
+        int32_t    mbhl_slowoffset;
+        int32_t    mbhl_fastattack;
         int32_t    mbhl_fastrelease;
         int32_t    mbhl_slowattack;
         int32_t    mbhl_slowrelease;
@@ -378,28 +408,36 @@ typedef struct vxdata_s {
         int32_t    mbhl_midcross;
         int32_t    mbhl_compressorat;//Compressor Attack Time
         int32_t    mbhl_compressorlrt;// Compressorlow Release Time
-        float      mbhl_compressolr;//Compressor low ratio
-        float      mbhl_compressolt;//Compressor low Threshold
-        float      mbhl_makeupgain;//Compressor Low Makeup Gain
+        int32_t    mbhl_compressolr;//Compressor low ratio
+        int32_t    mbhl_compressolt;//Compressor low Threshold
+        int32_t    mbhl_makeupgain;//Compressor Low Makeup Gain
         int32_t    mbhl_midreleasetime;//Compressor Mid release
-        float      mbhl_midratio;//Compressor mid ratio
-        float      mbhl_midthreshold;//Compressor mid threshold
-        float      mbhl_midmakeupgain;//Compressor mid makeupgain
+        int32_t    mbhl_midratio;//Compressor mid ratio
+        int32_t    mbhl_midthreshold;//Compressor mid threshold
+        int32_t    mbhl_midmakeupgain;//Compressor mid makeupgain
         int32_t    mbhl_highreleasetime;//Compressor high release time
-        float      mbhl_highratio;//Compressor high ratio
-        float      mbhl_highthreshold;//Compressor high threshold
-        float      mbhl_highmakegian;//Compressor high makeupgain
+        int32_t    mbhl_highratio;//Compressor high ratio
+        int32_t    mbhl_highthreshold;//Compressor high threshold
+        int32_t    mbhl_highmakegian;//Compressor high makeupgain
+        int32_t    mbhl_processdiscard;
         int32_t    Truvolume_enable;
         int32_t    targetlevel;
         int32_t    preset;
+        int32_t    aeq_enable;
+        int32_t    aeq_discard;
+        int32_t    aeq_inputgain;
+        int32_t    aeq_outputgain;
+        int32_t    aeq_bypassgain;
+        int32_t    aeq_bandnum;
+        int32_t    aeq_fc[12];
     };
     int            enable;
     Virtualxcfg    vxcfg;
-    int            counter;
     TS_cfg         TS_usr_cfg[TS_MODE_MUM];
     DC_cfg         DC_usr_cfg[DC_MODE_MUM];
     int            dialogclarity_mode;
     int            surround_mode;
+    int            latency;
 } vxdata;
 
 typedef struct vxContext_s {
@@ -409,33 +447,33 @@ typedef struct vxContext_s {
     void                            *gVXLibHandler;
     vxdata                          gvxdata;
     Virtualxapi                     gVirtualxapi;
-    int32_t                        sTempBuffer[12][256];
-    int32_t                        TempBuffer[12][256];
-    int32_t                        *ppMappedInCh[12];
-    int32_t                        *ppMappedOutCh[12];
-    int32_t                        *ppDataIn[12];
-    float                          lowcrossfreq;
-    float                          midcrossfreq;
-    int32_t                        spksize;
-    float                          hpratio;
-    float                          extbass;
-    int32_t                        ch_num;
+    int32_t                         sTempBuffer[12][256];
+    int32_t                         TempBuffer[12][256];
+    int32_t                         *ppMappedInCh[12];
+    int32_t                         *ppMappedOutCh[12];
+    float                           lowcrossfreq;
+    float                           midcrossfreq;
+    int32_t                         spksize;
+    float                           hpratio;
+    float                           extbass;
+    int32_t                         ch_num;
+    AudioFade_t                     gAudFade;
+    AudioFade_t                     gAudFade1;
+    // when recieve setting change from app,
+    //"fade audio out->do setting->fade audio In"
+    int                             bUseFade;
+    int                             bUseFade1;
+    int                             bUseFade2;
+    int                             bUseFade3;
+    int                             bUseFade4;
+    int32_t                         samplecounter;
+    int16_t                         *in_clone;
+    float                           totaldb;
 } vxContext;
 
 const char *VXStatusstr[] = {"Disable", "Enable"};
-const char *VXLibStatusstr[] = {"Disable", "Enable"};
-const char *TrusStatusstr[] = {"Disable", "Enable"};
-const char *TruspmuStatusstr[] = {"Disable", "Enable"};//Passive Matrix Upmixer Enable
-const char *DCStatusstr[] = {"Disable", "Enable"};
-const char *DEStatusstr[] = {"Disable", "Enable"};
-const char *TbhdxStatusstr[] = {"Disable", "Enable"};
-const char *TbhdxmonoStatusstr[] = {"Disable", "Enable"};
-const char *MbhlStatusstr[] = {"Disable", "Enable"};
-const char *TruvStatusstr[] = {"Disable", "Enable"};
-
 const char *VXDialogClarityModestr[DC_MODE_MUM] = {"OFF", "LOW", "HIGH"};
 const char *VXSurroundModestr[TS_MODE_MUM] = {"ON", "OFF"};
-
 
 int Virtualx_get_model_name(char *model_name, int size)
 {
@@ -452,7 +490,6 @@ int Virtualx_get_model_name(char *model_name, int size)
     return ret;
 }
 
-/*
 static int getprop_bool(const char *path)
 {
     char buf[PROPERTY_VALUE_MAX];
@@ -466,7 +503,16 @@ static int getprop_bool(const char *path)
     }
     return 0;
 }
-*/
+
+short clip(int x) {
+    if (x < -32768) {
+        return -32768;
+    } else if (x > 32767) {
+        return 32767;
+    } else {
+        return x;
+    }
+}
 
 int Virtualx_get_ini_file(char *ini_name, int size)
 {
@@ -507,13 +553,11 @@ int Virtualx_parse_dialogclarity(DC_cfg *DC_parm, const char *buffer)
         goto error;
     DC_parm->vxdialogclarity.enable = atoi(Rch);
     //ALOGD("%s: Dialog Clarity enable = %d", __FUNCTION__, DC_parm->vxdialogclarity.enable);
-
     Rch = strtok(NULL, ",");
     if (Rch == NULL)
         goto error;
     DC_parm->vxdialogclarity.level = atof(Rch);
     //ALOGD("%s: Dialog Clarity Gain = %f", __FUNCTION__, DC_parm->vxdialogclarity.level);
-
     return 0;
 error:
     ALOGE("%s: Dialog Clarity Parse failed", __FUNCTION__);
@@ -642,6 +686,27 @@ int Virtualx_parse_surround(TS_cfg *TS_param, const char *buffer)
 error:
     ALOGE("%s: TruSurround Parse failed", __FUNCTION__);
     return -1;
+}
+
+int AEQ_parse_fc_config(vxContext *pContext, int bandnum, const char *buffer)
+{
+    int i;
+    char *Rch = (char *)buffer;
+    vxdata *data = &pContext->gvxdata;
+
+    for (i = 0; i < bandnum; i++) {
+        if (i == 0)
+            Rch = strtok(Rch, ",");
+        else
+            Rch = strtok(NULL, ",");
+        if (Rch == NULL) {
+            ALOGE("%s: Config Parse failed, using default config", __FUNCTION__);
+            return -1;
+        }
+        data->vxcfg.eqparam.aeq_fc[i] = atoi(Rch);
+        ALOGD("data->vxcfg.eqparam.aeq_fc[%d] is %d",i,data->vxcfg.eqparam.aeq_fc[i]);
+    }
+    return 0;
 }
 
 int Virtualx_load_ini_file(vxContext *pContext)
@@ -936,13 +1001,59 @@ int Virtualx_load_ini_file(vxContext *pContext)
     }
     data->vxcfg.Truvolume.preset = atoi(Rch);
    // ALOGD("Truvolume.preset is %d",data->vxcfg.Truvolume.preset);
+    ini_value =  pIniParser->GetString("Virtualx", "aeq", "NULL");
+    if (ini_value == NULL)
+         goto error;
+    Rch = (char *)ini_value;
+    Rch = strtok(Rch, ",");
+    if (Rch == NULL) {
+        goto error;
+    }
+    data->vxcfg.eqparam.aeq_enable = atoi(Rch);
+    Rch = strtok(NULL, ",");
+    if (Rch == NULL) {
+        goto error;
+    }
+    data->vxcfg.eqparam.aeq_discard = atoi(Rch);
+    Rch = strtok(NULL, ",");
+    if (Rch == NULL) {
+        goto error;
+    }
+    data->vxcfg.eqparam.aeq_inputgain = atof(Rch);
+    Rch = strtok(NULL, ",");
+    if (Rch == NULL) {
+        goto error;
+    }
+    data->vxcfg.eqparam.aeq_outputgain = atof(Rch);
+    Rch = strtok(NULL, ",");
+    if (Rch == NULL) {
+        goto error;
+    }
+    data->vxcfg.eqparam.aeq_bypassgain = atof(Rch);
+    ini_value =  pIniParser->GetString("Virtualx", "aeq_bandnum", "5");
+    if (ini_value == NULL)
+     goto error;
+    data->vxcfg.eqparam.aeq_bandnum = atoi(ini_value);
+    //ALOGD("aeq_bandnum  is %d",data->vxcfg.eqparam.aeq_bandnum);
+    ini_value =  pIniParser->GetString("Virtualx", "fc", "NULL");
+    if (ini_value == NULL)
+        goto error;
+    result = AEQ_parse_fc_config(pContext, data->vxcfg.eqparam.aeq_bandnum, ini_value);
+    if (result != 0)
+        goto error;
+    ini_value =  pIniParser->GetString("Virtualx", "latency", "2648");
+    if (ini_value == NULL)
+        goto error;
+    data->latency = atoi(ini_value);
+    //ALOGD("data->latency is %d",data->latency);
+
     result = 0;
 
 error:
-      ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
-      delete pIniParser;
-      pIniParser = NULL;
-      return result;
+    ALOGD("%s: %s", __FUNCTION__, result == 0 ? "sucessful" : "failed");
+    delete pIniParser;
+    pIniParser = NULL;
+    return result;
 }
 int Virtualx_load_lib(vxContext *pContext)
 {
@@ -961,14 +1072,24 @@ int Virtualx_load_lib(vxContext *pContext)
         ALOGE("%s: find func VX_release() failed\n", __FUNCTION__);
         goto Error;
     }
-    pContext->gVirtualxapi.VX_process = (int (*)(int32_t **,int32_t**,int))dlsym(pContext->gVXLibHandler, "VX_process_api");
+    pContext->gVirtualxapi.VX_process = (int (*)(int32_t **,int32_t**))dlsym(pContext->gVXLibHandler, "VX_process_api");
     if (!pContext->gVirtualxapi.VX_process) {
         ALOGE("%s: find func VX_process() failed\n", __FUNCTION__);
+        goto Error;
+    }
+    pContext->gVirtualxapi.Truvolume_process = (int (*)(int32_t **,int32_t**))dlsym(pContext->gVXLibHandler, "Truvolume_process_api");
+    if (!pContext->gVirtualxapi.Truvolume_process) {
+        ALOGE("%s: find func Truvolume_process() failed\n", __FUNCTION__);
         goto Error;
     }
     pContext->gVirtualxapi.MBHL_process = (int (*)(int32_t **,int32_t**))dlsym(pContext->gVXLibHandler, "MBHL_process_api");
     if (!pContext->gVirtualxapi.MBHL_process) {
         ALOGE("%s: find func MBHL_process() failed\n", __FUNCTION__);
+        goto Error;
+    }
+    pContext->gVirtualxapi.VX_reset = (int (*)(void))dlsym(pContext->gVXLibHandler, "VX_reset_api");
+    if (!pContext->gVirtualxapi.VX_reset) {
+        ALOGE("%s: find func VX_reset() failed\n", __FUNCTION__);
         goto Error;
     }
     pContext->gVirtualxapi.setvxlib1_enable = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "setvxlib1_enable");
@@ -1628,7 +1749,56 @@ int Virtualx_load_lib(vxContext *pContext)
         ALOGE("%s: find func setmbhl_FilterDesign() failed\n", __FUNCTION__);
         return -1;
     }
-    property_set("media.libplayer.dtsMulChPcm","true");
+    pContext->gVirtualxapi.seteq_enable = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_enable");
+    if (!pContext->gVirtualxapi.seteq_enable) {
+        ALOGE("%s: find func seteq_enable() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.geteq_enable = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_enable");
+    if (!pContext->gVirtualxapi.geteq_enable) {
+        ALOGE("%s: find func geteq_enable() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.seteq_discard = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_discard");
+    if (!pContext->gVirtualxapi.seteq_discard) {
+        ALOGE("%s: find func seteq_discard() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.seteq_inputG = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_inputG");
+    if (!pContext->gVirtualxapi.seteq_inputG) {
+        ALOGE("%s: find func seteq_inputG() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.geteq_inputG = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_inputG");
+    if (!pContext->gVirtualxapi.geteq_inputG) {
+        ALOGE("%s: find func geteq_inputG() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.seteq_outputG = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_outputG");
+    if (!pContext->gVirtualxapi.seteq_outputG) {
+        ALOGE("%s: find func seteq_outputG() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.geteq_outputG = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_outputG");
+    if (!pContext->gVirtualxapi.geteq_outputG) {
+        ALOGE("%s: find func geteq_outputG() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.seteq_bypassG = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_bypassG");
+    if (!pContext->gVirtualxapi.seteq_bypassG) {
+        ALOGE("%s: find func seteq_bypassG() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.geteq_bypassG = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_bypassG");
+    if (!pContext->gVirtualxapi.geteq_bypassG) {
+        ALOGE("%s: find func geteq_bypassG() failed\n", __FUNCTION__);
+        return -1;
+    }
+    pContext->gVirtualxapi.seteq_band = (int (*)(int32_t,void*))dlsym(pContext->gVXLibHandler, "seteq_band");
+    if (!pContext->gVirtualxapi.seteq_band) {
+        ALOGE("%s: find func seteq_band() failed\n", __FUNCTION__);
+        return -1;
+    }
     ALOGD("%s: sucessful", __FUNCTION__);
     return 0;
 Error:
@@ -1669,7 +1839,6 @@ int Virtualx_init(vxContext *pContext)
     pContext->config.outputCfg.mask = EFFECT_CONFIG_ALL;
 
     //init counter and value
-    pContext->gvxdata.counter = 0;
     pContext->ch_num = 0;
     pContext->lowcrossfreq = 300;
     pContext->midcrossfreq = 5000;
@@ -1679,41 +1848,42 @@ int Virtualx_init(vxContext *pContext)
     data->vxlib_enable = data->vxcfg.vxlib.enable;
     data->input_mode = data->vxcfg.vxlib.input_mode;
     data->output_mode = data->vxcfg.vxlib.output_mode;
-    data->headroom_gain = data->vxcfg.vxlib.headroom_gain;
-    data->output_gain = data->vxcfg.vxlib.output_gain;
+    data->headroom_gain = FXP32(data->vxcfg.vxlib.headroom_gain,2);
+    data->output_gain = FXP32(data->vxcfg.vxlib.output_gain,4);
     data->vxtrusurround_enable = data->TS_usr_cfg[0].vxtrusurround.enable;
     data->upmixer_enable = data->TS_usr_cfg[0].vxtrusurround.upmixer_enable;
     data->horizontaleffect_control =data->TS_usr_cfg[0].vxtrusurround.horizontaleffect_control;
-    data->frontwidening_control = data->TS_usr_cfg[0].vxtrusurround.frontwidening_control;
-    data->surroundwidening_control = data->TS_usr_cfg[0].vxtrusurround.surroundwidening_control;
-    data->phantomcenter_mixlevel = data->TS_usr_cfg[0].vxtrusurround.phantomcenter_mixlevel;
-    data->heightmix_coeff = data->TS_usr_cfg[0].vxtrusurround.heightmix_coeff;
-    data->center_gain = data->TS_usr_cfg[0].vxtrusurround.center_gain;
+    data->frontwidening_control = FXP32(data->TS_usr_cfg[0].vxtrusurround.frontwidening_control,3);
+    data->surroundwidening_control = FXP32(data->TS_usr_cfg[0].vxtrusurround.surroundwidening_control,3);
+    data->phantomcenter_mixlevel = FXP32(data->TS_usr_cfg[0].vxtrusurround.phantomcenter_mixlevel,3);
+    data->heightmix_coeff = FXP32(data->TS_usr_cfg[0].vxtrusurround.heightmix_coeff,3);
+    data->center_gain = FXP32(data->TS_usr_cfg[0].vxtrusurround.center_gain,3);
     data->height_discard = data->TS_usr_cfg[0].vxtrusurround.height_discard;
     data->discard = data->TS_usr_cfg[0].vxtrusurround.discard;
     data->heightupmix_enable = data->TS_usr_cfg[0].vxtrusurround.heightupmix_enable;
     data->vxdialogclarity_enable = data->DC_usr_cfg[0].vxdialogclarity.enable;
-    data->vxdialogclarity_level = data->DC_usr_cfg[0].vxdialogclarity.level;
+    data->vxdialogclarity_level = FXP32(data->DC_usr_cfg[0].vxdialogclarity.level,2);
     data->vxdefinition_enable = data->TS_usr_cfg[0].vxdefinition.enable;
-    data->vxdefinition_level = data->TS_usr_cfg[0].vxdefinition.level;
+    data->vxdefinition_level = FXP32(data->TS_usr_cfg[0].vxdefinition.level,2);
     data->tbhdx_enable = data->TS_usr_cfg[0].tbhdx.enable;
     data->monomode_enable = data->TS_usr_cfg[0].tbhdx.monomode_enable;
     data->speaker_size = data->TS_usr_cfg[0].tbhdx.speaker_size;
-    data->tmporal_gain = data->TS_usr_cfg[0].tbhdx.tmporal_gain;
-    data->max_gain = data->TS_usr_cfg[0].tbhdx.max_gain;
+    data->tmporal_gain = FXP32(data->TS_usr_cfg[0].tbhdx.tmporal_gain,2);
+    data->max_gain = FXP32(data->TS_usr_cfg[0].tbhdx.max_gain,2);
     data->hpfo = data->TS_usr_cfg[0].tbhdx.hpfo;
     data->highpass_enble = data->TS_usr_cfg[0].tbhdx.highpass_enble;
+    data->tbhdx_processdiscard = 0;
     data->mbhl_enable = data->vxcfg.mbhl.mbhl_enable;
-    data->mbhl_bypassgain = data->vxcfg.mbhl.mbhl_bypassgain;
-    data->mbhl_reflevel = data->vxcfg.mbhl.mbhl_reflevel;
-    data->mbhl_volume = data->vxcfg.mbhl.mbhl_volume;
+    data->mbhl_bypassgain = FXP32(data->vxcfg.mbhl.mbhl_bypassgain,2);
+    data->mbhl_reflevel = FXP32(data->vxcfg.mbhl.mbhl_reflevel,2);
+    data->mbhl_volume = FXP32(data->vxcfg.mbhl.mbhl_volume,2);
     data->mbhl_volumesttep = data->vxcfg.mbhl.mbhl_volumesttep;
     data->mbhl_balancestep = data->vxcfg.mbhl.mbhl_balancestep;
-    data->mbhl_outputgain = data->vxcfg.mbhl.mbhl_outputgain;
-    data->mbhl_boost = data->vxcfg.mbhl.mbhl_boost;
-    data->mbhl_threshold = data->vxcfg.mbhl.mbhl_threshold;
-    data->mbhl_slowoffset = data->vxcfg.mbhl.mbhl_slowoffset;
-    data->mbhl_fastattack = data->vxcfg.mbhl.mbhl_fastattack;
+    data->mbhl_outputgain = FXP32(data->vxcfg.mbhl.mbhl_outputgain,2);
+    data->mbhl_boost = FXP32(data->vxcfg.mbhl.mbhl_boost,11);
+    data->mbhl_threshold = FXP32(data->vxcfg.mbhl.mbhl_threshold,2);
+    data->mbhl_slowoffset = FXP32(data->vxcfg.mbhl.mbhl_slowoffset,3);
+    data->mbhl_fastattack = FXP32(data->vxcfg.mbhl.mbhl_fastattack,5);
     data->mbhl_fastrelease = data->vxcfg.mbhl.mbhl_fastrelease;
     data->mbhl_slowattack = data->vxcfg.mbhl.mbhl_slowattack;
     data->mbhl_slowrelease = data->vxcfg.mbhl.mbhl_slowrelease;
@@ -1724,31 +1894,53 @@ int Virtualx_init(vxContext *pContext)
     data->mbhl_midcross = data->vxcfg.mbhl.mbhl_midcross;
     data->mbhl_compressorat = data->vxcfg.mbhl.mbhl_compressorat;
     data->mbhl_compressorlrt = data->vxcfg.mbhl.mbhl_compressorlrt;
-    data->mbhl_compressolr = data->vxcfg.mbhl.mbhl_compressolr;
-    data->mbhl_compressolt = data->vxcfg.mbhl.mbhl_compressolt;
-    data->mbhl_makeupgain = data->vxcfg.mbhl.mbhl_makeupgain;
+    data->mbhl_compressolr = FXP32(data->vxcfg.mbhl.mbhl_compressolr,6);
+    data->mbhl_compressolt = FXP32(data->vxcfg.mbhl.mbhl_compressolt,5);
+    data->mbhl_makeupgain = FXP32(data->vxcfg.mbhl.mbhl_makeupgain,5);
     data->mbhl_midreleasetime = data->vxcfg.mbhl.mbhl_midreleasetime;
-    data->mbhl_midratio = data->vxcfg.mbhl.mbhl_midratio;
-    data->mbhl_midthreshold = data->vxcfg.mbhl.mbhl_midthreshold;
-    data->mbhl_midmakeupgain = data->vxcfg.mbhl.mbhl_midmakeupgain;
+    data->mbhl_midratio = FXP32(data->vxcfg.mbhl.mbhl_midratio,6);
+    data->mbhl_midthreshold = FXP32(data->vxcfg.mbhl.mbhl_midthreshold,5);
+    data->mbhl_midmakeupgain = FXP32(data->vxcfg.mbhl.mbhl_midmakeupgain,5);
     data->mbhl_highreleasetime = data->vxcfg.mbhl.mbhl_highreleasetime;
-    data->mbhl_highratio = data->vxcfg.mbhl.mbhl_highratio;
-    data->mbhl_highthreshold = data->vxcfg.mbhl.mbhl_highthreshold;
-    data->mbhl_highmakegian = data->vxcfg.mbhl.mbhl_highmakegian;
+    data->mbhl_highratio = FXP32(data->vxcfg.mbhl.mbhl_highratio,6);
+    data->mbhl_highthreshold = FXP32(data->vxcfg.mbhl.mbhl_highthreshold,5);
+    data->mbhl_highmakegian = FXP32(data->vxcfg.mbhl.mbhl_highmakegian,5);
+    data->mbhl_processdiscard = 0;
     data->Truvolume_enable = data->vxcfg.Truvolume.enable;
     data->targetlevel = data->vxcfg.Truvolume.targetlevel;
     data->preset = data->vxcfg.Truvolume.preset;
+    data->aeq_enable = data->vxcfg.eqparam.aeq_enable;
+    data->aeq_discard = data->vxcfg.eqparam.aeq_discard;
+    data->aeq_inputgain = FXP16(data->vxcfg.eqparam.aeq_inputgain,1);
+    data->aeq_outputgain = FXP16(data->vxcfg.eqparam.aeq_outputgain,1);
+    data->aeq_bypassgain = FXP16(data->vxcfg.eqparam.aeq_bypassgain,1);
+    data->aeq_bandnum = data->vxcfg.eqparam.aeq_bandnum;
+    for (int i = 0; i < data->aeq_bandnum; i++)
+        data->aeq_fc[i] = data->vxcfg.eqparam.aeq_fc[i];
     //malloc memory for ppMappedInCh[3]~ppMappedInCh[11] to fix crash (null pointer dereference)
     for (int i = 0; i < 12; i++) {
-        pContext->ppDataIn[i] = pContext->sTempBuffer[i];
+        pContext->ppMappedInCh[i]  = pContext->sTempBuffer[i];
         pContext->ppMappedOutCh[i] = pContext->TempBuffer[i];
     }
-
     if (pContext->gVXLibHandler) {
         (*pContext->gVirtualxapi.VX_init)((void*) data);
-
     }
+    pContext->in_clone = (int16_t*)malloc(4096 * sizeof(int16_t) * 6);
+    memset(pContext->in_clone, 0, 4096 * sizeof(int16_t) * 6);
     ALOGD("%s: sucessful", __FUNCTION__);
+    return 0;
+}
+
+int Virtualx_reset(vxContext *pContext)
+{
+    if (pContext->gVXLibHandler)
+        (*pContext->gVirtualxapi.VX_reset)();
+    memset(pContext->sTempBuffer,0,sizeof(int32_t) * 12 * 256);
+    memset(pContext->TempBuffer,0,sizeof(int32_t) * 12 * 256);
+    for (int i = 0; i < 12; i++) {
+        memset((void*)pContext->ppMappedInCh[i],0,256 * sizeof(int32_t));
+        memset((void*)pContext->ppMappedOutCh[i],0,256 * sizeof(int32_t));
+    }
     return 0;
 }
 
@@ -1772,1071 +1964,1264 @@ int Virtualx_configure(vxContext *pContext, effect_config_t *pConfig)
         pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
     }
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
+
+    /** default channel is 2**/
+    if (pContext->bUseFade) {
+        int channels = 2;
+        AudioFadeSetFormat(&pContext->gAudFade, pConfig->inputCfg.samplingRate, channels, pConfig->inputCfg.format);
+        AudioFadeSetFormat(&pContext->gAudFade1, pConfig->inputCfg.samplingRate, channels, pConfig->inputCfg.format);
+    }
     return 0;
+}
+
+static inline float AmplToDb(float amplification)
+{
+    return 20 * log10(amplification);
+}
+
+static inline float DbToAmpl(float decibels)
+{
+    return exp( decibels * 0.115129f); // exp( dB * ln(10) / 20 )
 }
 
 int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
 {
     int32_t param = *(int32_t *)pParam;
     int32_t value;
+    int32_t tsx_discard;
     float scale;
     int32_t basslvl;
     float * p;
     vxdata *data = &pContext->gvxdata;
     switch (param) {
-        case VIRTUALX_PARAM_ENABLE:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            data->enable = value;
-            if (data->enable) {
-                property_set("media.libplayer.dtsMulChPcm","true");
-            } else {
-                property_set("media.libplayer.dtsMulChPcm","false");
-            }
-            ALOGD("%s: Set status -> %s", __FUNCTION__, VXStatusstr[value]);
-            break;
-        case VIRTUALX_PARAM_DIALOGCLARTY_MODE:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            if (value > 2)
-                value = 2;
-            data->dialogclarity_mode = value;
-            data->vxdialogclarity_enable = data->DC_usr_cfg[value].vxdialogclarity.enable;
-            data->vxdialogclarity_level = data->DC_usr_cfg[value].vxdialogclarity.level;
-            if (data->enable) {
-                (*pContext->gVirtualxapi.settsx_dcenable)(data->vxdialogclarity_enable);
-                (*pContext->gVirtualxapi.settsx_dccontrol)(DTS_FXP32(data->vxdialogclarity_level,2));
-                ALOGD("%s: Set Dialog Clarity Mode %s", __FUNCTION__, VXDialogClarityModestr[value]);
-            } else {
-                ALOGD("%s: Set Dialog Clarity Mode failed", __FUNCTION__);
-                return 0;
-            }
-            break;
-        case VIRTUALX_PARAM_SURROUND_MODE:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            if (value > 1)
-                value = 1;
-            data->surround_mode = value;
-            data->vxtrusurround_enable = data->TS_usr_cfg[value].vxtrusurround.enable;
-            data->upmixer_enable = data->TS_usr_cfg[value].vxtrusurround.upmixer_enable;
-            data->horizontaleffect_control =data->TS_usr_cfg[value].vxtrusurround.horizontaleffect_control;
-            data->frontwidening_control = data->TS_usr_cfg[value].vxtrusurround.frontwidening_control;
-            data->surroundwidening_control = data->TS_usr_cfg[value].vxtrusurround.surroundwidening_control;
-            data->phantomcenter_mixlevel = data->TS_usr_cfg[value].vxtrusurround.phantomcenter_mixlevel;
-            data->heightmix_coeff = data->TS_usr_cfg[value].vxtrusurround.heightmix_coeff;
-            data->center_gain = data->TS_usr_cfg[value].vxtrusurround.center_gain;
-            data->height_discard = data->TS_usr_cfg[value].vxtrusurround.height_discard;
-            data->discard = data->TS_usr_cfg[value].vxtrusurround.discard;
-            data->heightupmix_enable = data->TS_usr_cfg[value].vxtrusurround.heightupmix_enable;
-            data->vxdefinition_enable = data->TS_usr_cfg[value].vxdefinition.enable;
-            data->vxdefinition_level = data->TS_usr_cfg[value].vxdefinition.level;
-            data->tbhdx_enable = data->TS_usr_cfg[value].tbhdx.enable;
-            data->monomode_enable = data->TS_usr_cfg[value].tbhdx.monomode_enable;
-            data->speaker_size = data->TS_usr_cfg[value].tbhdx.speaker_size;
-            data->tmporal_gain = data->TS_usr_cfg[value].tbhdx.tmporal_gain;
-            data->max_gain = data->TS_usr_cfg[value].tbhdx.max_gain;
-            data->hpfo = data->TS_usr_cfg[value].tbhdx.hpfo;
-            data->highpass_enble = data->TS_usr_cfg[value].tbhdx.highpass_enble;
-            if (data->enable) {
-                (*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
-                (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(data->upmixer_enable);
-                (*pContext->gVirtualxapi.settsx_horizontctl)(data->horizontaleffect_control);
-                (*pContext->gVirtualxapi.settsx_frntctrl)(data->frontwidening_control);
-                (*pContext->gVirtualxapi.settsx_surroundctrl)(data->surroundwidening_control);
-                (*pContext->gVirtualxapi.settsx_lprgain)(DTS_FXP32(data->phantomcenter_mixlevel,3));
-                (*pContext->gVirtualxapi.settsx_heightmixcoeff)(DTS_FXP32(data->heightmix_coeff,3));
-                (*pContext->gVirtualxapi.settsx_centergain)(DTS_FXP32(data->center_gain,3));
-                (*pContext->gVirtualxapi.settsx_heightdiscards)(data->height_discard);
-                (*pContext->gVirtualxapi.settsx_discard)(data->discard);
-                (*pContext->gVirtualxapi.settsx_hghtupmixenable)(data->heightupmix_enable);
-                (*pContext->gVirtualxapi.settsx_defenable)(data->vxdefinition_enable);
-                (*pContext->gVirtualxapi.settsx_defcontrol)(DTS_FXP32(data->vxdefinition_level,2));
-                (*pContext->gVirtualxapi.settbhdx_enable)(data->tbhdx_enable);
-                (*pContext->gVirtualxapi.settbhdx_monomode)(data->monomode_enable);
-                (*pContext->gVirtualxapi.settbhdx_spksize)(data->speaker_size);
-                (*pContext->gVirtualxapi.settbhdx_tempgain)(DTS_FXP32(data->tmporal_gain,2));
-                (*pContext->gVirtualxapi.settbhdx_maxgain)(DTS_FXP32(data->max_gain,2));
-                (*pContext->gVirtualxapi.settbhdx_hporder)(data->hpfo);
-                (*pContext->gVirtualxapi.settbhdx_hpenable)(data->highpass_enble);
-                 ALOGD("%s: Set Surround Mode %s", __FUNCTION__, VXSurroundModestr[value]);
-            } else {
-                ALOGD("%s: Set Surround Mode failed", __FUNCTION__);
-                return 0;
-            }
-            break;
-        case DTS_PARAM_MBHL_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_enable)(value);
-            ALOGD("%s set mbhl enable is %d", __FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_BYPASS_GAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.setmbhl_bypassgain)(value);
-            ALOGD("%s set mbhl baypss gain is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_REFERENCE_LEVEL_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.setmbhl_reflevel)(value);
-            ALOGD("%s set mbhl reflevel is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_VOLUME_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.setmbhl_volume)(value);
-            ALOGD("%s set mbhl volume is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_VOLUME_STEP_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_volumestep)(value);
-            ALOGD("%s set mbhl volumestep is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_BALANCE_STEP_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_balancestep)(value);
-            ALOGD("%s set mbhl balancestep is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_OUTPUT_GAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.setmbhl_outputgain)(value);
-            ALOGD("%s set mbhl outputgain is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_MODE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_mode)(value);
-            ALOGD("%s set mbhl mode is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_PROCESS_DISCARD_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_processdiscard)(value);
-            ALOGD("%s set mbhl process discard is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_CROSS_LOW_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_lowcross)(value);
-            ALOGD("%s set mbhl lowcross is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_CROSS_MID_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_crossmid)(value);
-            ALOGD("%s set mbhl crossmid is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_ATTACK_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_compattrack)(value);
-            ALOGD("%s set mbhl compattrack is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_lowrelease)(value);
-            ALOGD("%s set mbhl lowrelease is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_RATIO_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,6);
-            (*pContext->gVirtualxapi.setmbhl_complowratio)(value);
-            ALOGD("%s set mbhl complowratio is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_THRESH_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,5);
-            (*pContext->gVirtualxapi.setmbhl_complowthresh)(value);
-            ALOGD("%s set mbhl complowthresh is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,5);
-            (*pContext->gVirtualxapi.setmbhl_lowmakeup)(value);
-            ALOGD("%s set mbhl lowmakeup is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_RELEASE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_compmidrelease)(value);
-            ALOGD("%s set mbhl compmidrelease is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_RATIO_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,6);
-            (*pContext->gVirtualxapi.setmbhl_midratio)(value);
-            ALOGD("%s set mbhl midratio is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_THRESH_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,5);
-            (*pContext->gVirtualxapi.setmbhl_compmidthresh)(value);
-            ALOGD("%s set mbhl compmidthresh is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,5);
-            (*pContext->gVirtualxapi.setmbhl_compmidmakeup)(value);
-            ALOGD("%s set mbhl compmidmakeup is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_comphighrelease)(value);
-            ALOGD("%s set mbhl comphighrelease is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,6);
-            (*pContext->gVirtualxapi.setmbhl_comphighratio)(value);
-            ALOGD("%s set mbhl comphighratio is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,5);
-            (*pContext->gVirtualxapi.setmbhl_comphighthresh)(value);
-            ALOGD("%s set mbhl comphighthresh is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,5);
-            (*pContext->gVirtualxapi.setmbhl_comphighmakeup)(value);
-            ALOGD("%s set mbhl comphighmakeup is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_BOOST_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,11);
-            (*pContext->gVirtualxapi.setmbhl_boost)(value);
-            ALOGD("%s set mbhl boost is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_THRESHOLD_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.setmbhl_threshold)(value);
-            ALOGD("%s set mbhl threshold is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_SLOW_OFFSET_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.setmbhl_slowoffset)(value);
-            ALOGD("%s set mbhl slowoffset %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_FAST_ATTACK_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,5);
-            (*pContext->gVirtualxapi.setmbhl_fastattack)(value);
-            ALOGD("%s set mbhl fastattackt %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_FAST_RELEASE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_fastrelease)(value);
-            ALOGD("%s set mbhl fastrelease %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_SLOW_ATTACK_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_slowattrack)(value);
-            ALOGD("%s set mbhl slowattrack %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_SLOW_RELEASE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_slowrelease)(value);
-            ALOGD("%s set mbhl slowrelease %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_DELAY_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_delay)(value);
-            ALOGD("%s set mbhl delay %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_envelopefre)(value);
-            ALOGD("%s set mbhl envelopefre %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settbhdx_enable)(value);
-            ALOGD("%s set tbhdx enable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_MONO_MODE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settbhdx_monomode)(value);
-            ALOGD("%s set tbhdx monomode %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_MAXGAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settbhdx_maxgain)(value);
-            ALOGD("%s set tbhdx maxgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_SPKSIZE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settbhdx_spksize)(value);
-            ALOGD("%s set tbhdx spksize %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_HP_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settbhdx_hpenable)(value);
-            ALOGD("%s set tbhdx hpenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_TEMP_GAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settbhdx_tempgain)(value);
-            ALOGD("%s set tbhdx tempgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_PROCESS_DISCARD_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settbhdx_processdiscard)(value);
-            ALOGD("%s set tbhdx process discard %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_HPORDER_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settbhdx_hporder)(value);
-            ALOGD("%s set tbhdx hporder %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
-            ALOGD("%s set vxlib1 enable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_INPUT_MODE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            if (value > 1)
-                value = 1;
-            pContext->ch_num = value; // here to set input ch num
-            (*pContext->gVirtualxapi.setvxlib1_inmode)(value);
-            ALOGD("%s set vxlib1 inmode %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_OUTPUT_MODE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setvxlib1_outmode)(value);
-            ALOGD("%s set vxlib1 outmode %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_HEADROOM_GAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
-            ALOGD("%s set vxlib1 heardroomgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,4);
-            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
-            ALOGD("%s set vxlib1 procoutgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_enable)(value);
-            ALOGD("%s set tsx enable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(value);
-            ALOGD("%s set tsx pssvmtrxenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_hghtupmixenable)(value);
-            ALOGD("%s set tsx hghtupmixenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_LPR_GAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_lprgain)(value);
-            ALOGD("%s set tsx lprgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_CENTER_GAIN_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,3);
-            (pContext->gVirtualxapi.settsx_centergain)(value);
-            ALOGD("%s set tsx centergain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_horizontctl)(value);
-            ALOGD("%s set tsx horizontctl %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_heightmixcoeff)(value);
-            ALOGD("%s set tsx heightmixcoeff %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_PROCESS_DISCARD_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_discard)(value);
-            ALOGD("%s set tsx discard %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HEIGHT_DISCARD_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_heightdiscards)(value);
-            ALOGD("%s set tsx heightdiscards %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_FRNT_CTRL_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_frntctrl)(value);
-            ALOGD("%s set tsx frntctrl %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_SRND_CTRL_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_surroundctrl)(value);
-            ALOGD("%s set tsx surroundctrl %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DC_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_dcenable)(value);
-            ALOGD("%s set tsx dcenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DC_CONTROL_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settsx_dccontrol)(value);
-            ALOGD("%s set tsx dccontrol %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DEF_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settsx_defenable)(value);
-            ALOGD("%s set tsx defenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DEF_CONTROL_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            scale = *(float *)pValue;
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settsx_defcontrol)(value);
-            ALOGD("%s set tsx defcontrol %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settruvolume_ctren)(value);
-            ALOGD("%s set truvolume ctren %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settruvolume_ctrtarget)(value);
-            ALOGD("%s set truvolume ctrtarget %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.settruvolume_ctrpreset)(value);
-            ALOGD("%s set truvolume ctrpreset %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32:
-             if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setlc_inmode)(value);
-            ALOGD("%s set lc inmode %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            pContext->lowcrossfreq = *(float*)pValue;
-            (*pContext->gVirtualxapi.setmbhl_FilterDesign)(pContext->lowcrossfreq,pContext->midcrossfreq);
-            ALOGD("%s set mbhl filter design low freq %f and mid freq %f",__FUNCTION__,pContext->lowcrossfreq,pContext->midcrossfreq);
-            break;
-        case DTS_PARAM_MBHL_APP_FRT_MIDCROSS_F32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            pContext->midcrossfreq = *(float*)pValue;
-            (*pContext->gVirtualxapi.setmbhl_FilterDesign)(pContext->lowcrossfreq,pContext->midcrossfreq);
-            ALOGD("%s set mbhl filter design low freq %f and mid freq %f",__FUNCTION__,pContext->lowcrossfreq,pContext->midcrossfreq);
-            break;
-        case DTS_PARAM_TBHDX_APP_SPKSIZE_I32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            pContext->spksize = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.gettbhdx_tempgain)(&basslvl);
-            (*pContext->gVirtualxapi.settbhd_FilterDesign)(pContext->spksize,((float)basslvl)/1073741824.0f,pContext->hpratio,pContext->extbass);
-            ALOGD("%s set tbhd filter design spksize %d  hpratio %f extbass %f",__FUNCTION__,pContext->spksize,pContext->hpratio,pContext->extbass);
-            break;
-        case DTS_PARAM_TBHDX_APP_HPRATIO_F32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            pContext->hpratio = *(float *)pValue;
-            (*pContext->gVirtualxapi.gettbhdx_tempgain)(&basslvl);
-            (*pContext->gVirtualxapi.settbhd_FilterDesign)(pContext->spksize,((float)basslvl)/1073741824.0f,pContext->hpratio,pContext->extbass);
-            ALOGD("%s set tbhd filter design spksize %d  hpratio %f extbass %f",__FUNCTION__,pContext->spksize,pContext->hpratio,pContext->extbass);
-            break;
-        case DTS_PARAM_TBHDX_APP_EXTBASS_F32:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            pContext->extbass = *(float *)pValue;
-            (*pContext->gVirtualxapi.gettbhdx_tempgain)(&basslvl);
-            (*pContext->gVirtualxapi.settbhd_FilterDesign)(pContext->spksize,((float)basslvl)/1073741824.0f,pContext->hpratio,pContext->extbass);
-            ALOGD("%s set tbhd filter design spksize %d  hpratio %f extbass %f",__FUNCTION__,pContext->spksize,pContext->hpratio,pContext->extbass);
-            break;
-        case VIRTUALX_PARAM_COUNTER:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = *(int32_t *)pValue;
-            pContext->gvxdata.counter = value;
-            /*do nothing*/
-            break;
-        case AUDIO_DTS_PARAM_TYPE_NONE:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            p = (float *)pValue;
-            (*pContext->gVirtualxapi.setvxlib1_enable)((int32_t)*p++);
-            (*pContext->gVirtualxapi.settsx_dcenable)((int32_t)*p);
-            break;
-        case AUDIO_DTS_PARAM_TYPE_TRU_SURROUND:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            p = (float *)pValue;
-            value = (int32_t)*p++;
-            ALOGV("value1 is %d",value);
-            if (value > 1)
-                value = 1;
-            else if (value < 0)
-                value = 0;
-            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
-            scale = *p++;
-            if (scale < 0.125)
-                scale = 0.125;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale2 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
-            scale = *p++;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 4.0)
-                scale = 4.0;
-            ALOGV("scale3 is %f",scale);
-            value = DTS_FXP32(scale,4);
-            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value4 is %d",value);
-            (*pContext->gVirtualxapi.settsx_enable)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value5 is %d",value);
-            (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value6 is %d",value);
-            (*pContext->gVirtualxapi.settsx_horizontctl)(value);
-            scale = *p++;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 2.0)
-                scale = 2.0;
-            ALOGV("scale7 is %f",scale);
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_frntctrl)(value);
-            scale = *p;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 2.0)
-                scale = 2.0;
-            ALOGV("scale8 is %f",scale);
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_surroundctrl)(value);
-            break;
-        case AUDIO_DTS_PARAM_TYPE_CC3D:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            p = (float *)pValue;
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value1 is %d",value);
-            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
-            scale = *p++;
-            if (scale < 0.125)
-                scale = 0.125;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale2 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
-            scale = *p++;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 4.0)
-                scale = 4.0;
-            ALOGV("scale3 is %f",scale);
-            value = DTS_FXP32(scale,4);
-            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value4 is %d",value);
-            (*pContext->gVirtualxapi.settsx_enable)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value5 is %d",value);
-            (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value6 is %d",value);
-            (*pContext->gVirtualxapi.settsx_hghtupmixenable)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value7 is %d",value);
-            (*pContext->gVirtualxapi.settsx_heightdiscards)(value);
-            scale = *p;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 2.0)
-                scale = 2.0;
-            ALOGV("scale8 is %f",scale);
-             value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_heightmixcoeff)(value);
-            break;
-        case AUDIO_DTS_PARAM_TYPE_TRU_BASS:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            p = (float *)pValue;
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value1 is %d",value);
-            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
-            scale = *p++;
-            if (scale < 0.125)
-                scale = 0.125;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale2 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
-            scale = *p++;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 4.0)
-                scale = 4.0;
-            ALOGV("scale3 is %f",scale);
-            value = DTS_FXP32(scale,4);
-            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value4 is %d",value);
-            (*pContext->gVirtualxapi.settbhdx_enable)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value5 is %d",value);
-            (*pContext->gVirtualxapi.settbhdx_monomode)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 12)
-                value = 12;
-            ALOGV("value6 is %d",value);
-            (*pContext->gVirtualxapi.settbhdx_spksize)(value);
-            scale = *p++;
-            if (scale < 0.0)
-                scale = 0.0;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale7 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settbhdx_tempgain)(value);
-            scale = *p++;
-            if (scale < 0.0)
-                scale = 0.0;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale8 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settbhdx_maxgain)(value);
-            value = (int32_t)*p++;
-            if (value < 1)
-                value = 1;
-            else if (value > 8)
-                value = 8;
-            ALOGV("value9 is %d",value);
-            (*pContext->gVirtualxapi.settbhdx_hporder)(value);
-            value = (int32_t)*p;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value10 is %d",value);
-            (*pContext->gVirtualxapi.settbhdx_hpenable)(value);
-            break;
-        case AUDIO_DTS_PARAM_TYPE_TRU_DIALOG:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            p = (float *)pValue;
-            value = (int32_t)*p++;
-            ALOGV("value1 is %d",value);
-            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
-            scale = *p++;
-            if (scale < 0.125)
-                scale = 0.125;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale2 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
-            scale = *p++;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 4.0)
-                scale = 4.0;
-            ALOGV("scale3 is %f",scale);
-            value = DTS_FXP32(scale,4);
-            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value4 is %d",value);
-            (*pContext->gVirtualxapi.settsx_enable)(value);
-            scale = *p++;
-            if (scale < 0.0)
-                scale = 0.0;
-            else if (scale > 2.0)
-                scale = 2.0;
-            ALOGV("scale5 is %f",scale);
-            value = DTS_FXP32(scale,3);
-            (*pContext->gVirtualxapi.settsx_lprgain)(value);
-            scale = *p++;
-            if (scale < 1.0)
-                scale = 1.0;
-            else if (scale > 2.0)
-                scale = 2.0;
-            ALOGV("scale6 is %f",scale);
-            value = DTS_FXP32(scale,3);
-            (pContext->gVirtualxapi.settsx_centergain)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value7 is %d",value);
-            (*pContext->gVirtualxapi.settsx_dcenable)(value);
-            scale = *p;
-            if (scale < 0.0)
-                scale = 0.0;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale8 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settsx_dccontrol)(value);
-            break;
-        case AUDIO_DTS_PARAM_TYPE_DEFINATION:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            p = (float *)pValue;
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value1 is %d",value);
-            (*pContext->gVirtualxapi.setvxlib1_enable)(value);
-            scale = *p++;
-            if (scale < 0.125)
-                scale = 0.125;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale2 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
-            scale = *p++;
-            if (scale < 0.5)
-                scale = 0.5;
-            else if (scale > 4.0)
-                scale = 4.0;
-            ALOGV("scale3 is %f",scale);
-            value = DTS_FXP32(scale,4);
-            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value4 is %d",value);
-            (*pContext->gVirtualxapi.settsx_enable)(value);
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value5 is %d",value);
-            (*pContext->gVirtualxapi.settsx_defenable)(value);
-            scale = *p;
-            if (scale < 0.0)
-                scale = 0.0;
-            else if (scale > 1.0)
-                scale = 1.0;
-            ALOGV("scale6 is %f",scale);
-            value = DTS_FXP32(scale,2);
-            (*pContext->gVirtualxapi.settsx_defcontrol)(value);
-            break;
-        case AUDIO_DTS_PARAM_TYPE_TRU_VOLUME:
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            p = (float *)pValue;
-            value = (int32_t)*p++;
-            if (value < 0)
-                value = 0;
-            else if (value > 1)
-                value = 1;
-            ALOGV("value1 is %d",value);
-            (*pContext->gVirtualxapi.settruvolume_ctren)(value);
-            value = (int32_t)*p++;
-            if (value < -40)
-                value = -40;
-            else if (value > 0)
-                value = 0;
-            ALOGV("value2 is %d",value);
-            (*pContext->gVirtualxapi.settruvolume_ctrtarget)(value);
-            value = (int32_t)*p;
-            if (value < 0)
-                value = 0;
-            else if (value > 2)
-                value = 2;
-            ALOGV("value3 is %d",value);
-            (*pContext->gVirtualxapi.settruvolume_ctrpreset)(value);
-            break;
-        default:
-            ALOGE("%s: unknown param %08x", __FUNCTION__, param);
-            return -EINVAL;
+    case VIRTUALX_PARAM_ENABLE:
+        if (!pContext->gVXLibHandler) {
+            return 0;
         }
+        value = *(int32_t *)pValue;
+        data->enable = value;
+        if (data->enable) {
+            property_set("media.libplayer.dtsMulChPcm","true");
+        } else {
+            property_set("media.libplayer.dtsMulChPcm","false");
+        }
+        ALOGD("%s: Set status -> %s", __FUNCTION__, VXStatusstr[value]);
+        break;
+    case VIRTUALX_PARAM_DIALOGCLARTY_MODE:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        if (value > 2)
+            value = 2;
+        data->dialogclarity_mode = value;
+        data->vxdialogclarity_enable = data->DC_usr_cfg[value].vxdialogclarity.enable;
+        data->vxdialogclarity_level = FXP32(data->DC_usr_cfg[value].vxdialogclarity.level,2);
+        if (data->enable) {
+            (*pContext->gVirtualxapi.settsx_dcenable)(data->vxdialogclarity_enable);
+            (*pContext->gVirtualxapi.settsx_dccontrol)(data->vxdialogclarity_level);
+            ALOGD("%s: Set Dialog Clarity Mode %s", __FUNCTION__, VXDialogClarityModestr[value]);
+        } else {
+            ALOGD("%s: Set Dialog Clarity Mode failed", __FUNCTION__);
+            return 0;
+        }
+        break;
+    case VIRTUALX_PARAM_SURROUND_MODE:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        if (value > 1)
+            value = 1;
+        data->surround_mode = value;
+        data->vxtrusurround_enable = data->TS_usr_cfg[value].vxtrusurround.enable;
+        data->upmixer_enable = data->TS_usr_cfg[value].vxtrusurround.upmixer_enable;
+        data->horizontaleffect_control =data->TS_usr_cfg[value].vxtrusurround.horizontaleffect_control;
+        data->frontwidening_control = FXP32(data->TS_usr_cfg[value].vxtrusurround.frontwidening_control,3);
+        data->surroundwidening_control = FXP32(data->TS_usr_cfg[value].vxtrusurround.surroundwidening_control,3);
+        data->phantomcenter_mixlevel = FXP32(data->TS_usr_cfg[value].vxtrusurround.phantomcenter_mixlevel,3);
+        data->heightmix_coeff = FXP32(data->TS_usr_cfg[value].vxtrusurround.heightmix_coeff,3);
+        data->center_gain = FXP32(data->TS_usr_cfg[value].vxtrusurround.center_gain,3);
+        data->height_discard = data->TS_usr_cfg[value].vxtrusurround.height_discard;
+        data->discard = data->TS_usr_cfg[value].vxtrusurround.discard;
+        data->heightupmix_enable = data->TS_usr_cfg[value].vxtrusurround.heightupmix_enable;
+        data->vxdefinition_enable = data->TS_usr_cfg[value].vxdefinition.enable;
+        data->vxdefinition_level = FXP32(data->TS_usr_cfg[value].vxdefinition.level,2);
+        data->tbhdx_enable = data->TS_usr_cfg[value].tbhdx.enable;
+        data->monomode_enable = data->TS_usr_cfg[value].tbhdx.monomode_enable;
+        data->speaker_size = data->TS_usr_cfg[value].tbhdx.speaker_size;
+        data->tmporal_gain = FXP32(data->TS_usr_cfg[value].tbhdx.tmporal_gain,2);
+        MAX(data->tmporal_gain, GAIN_MAX);
+        MIN(data->tmporal_gain, GAIN_MIN);
+        data->max_gain = FXP32(data->TS_usr_cfg[value].tbhdx.max_gain,2);
+        MAX(data->max_gain, GAIN_MAX);
+        data->hpfo = data->TS_usr_cfg[value].tbhdx.hpfo;
+        data->highpass_enble = data->TS_usr_cfg[value].tbhdx.highpass_enble;
+        if (data->enable) {
+            (*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+            (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(data->upmixer_enable);
+            (*pContext->gVirtualxapi.settsx_horizontctl)(data->horizontaleffect_control);
+            (*pContext->gVirtualxapi.settsx_frntctrl)(data->frontwidening_control);
+            (*pContext->gVirtualxapi.settsx_surroundctrl)(data->surroundwidening_control);
+            (*pContext->gVirtualxapi.settsx_lprgain)(data->phantomcenter_mixlevel);
+            (*pContext->gVirtualxapi.settsx_heightmixcoeff)(data->heightmix_coeff);
+            (*pContext->gVirtualxapi.settsx_centergain)(data->center_gain);
+            (*pContext->gVirtualxapi.settsx_heightdiscards)(data->height_discard);
+            (*pContext->gVirtualxapi.settsx_discard)(data->discard);
+            (*pContext->gVirtualxapi.settsx_hghtupmixenable)(data->heightupmix_enable);
+            (*pContext->gVirtualxapi.settsx_defenable)(data->vxdefinition_enable);
+            (*pContext->gVirtualxapi.settsx_defcontrol)(data->vxdefinition_level);
+            (*pContext->gVirtualxapi.settbhdx_enable)(data->tbhdx_enable);
+            (*pContext->gVirtualxapi.settbhdx_monomode)(data->monomode_enable);
+            (*pContext->gVirtualxapi.settbhdx_spksize)(data->speaker_size);
+            (*pContext->gVirtualxapi.settbhdx_tempgain)(data->tmporal_gain);
+            (*pContext->gVirtualxapi.settbhdx_maxgain)(data->max_gain);
+            (*pContext->gVirtualxapi.settbhdx_hporder)(data->hpfo);
+            (*pContext->gVirtualxapi.settbhdx_hpenable)(data->highpass_enble);
+             ALOGD("%s: Set Surround Mode %s", __FUNCTION__, VXSurroundModestr[value]);
+        } else {
+            ALOGD("%s: Set Surround Mode failed", __FUNCTION__);
+            return 0;
+        }
+        break;
+    case DTS_PARAM_MBHL_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_enable)(value);
+        ALOGD("%s set mbhl enable is %d", __FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_BYPASS_GAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.setmbhl_bypassgain)(value);
+        ALOGD("%s set mbhl baypss gain is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_REFERENCE_LEVEL_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.setmbhl_reflevel)(value);
+        ALOGD("%s set mbhl reflevel is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_VOLUME_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.setmbhl_volume)(value);
+        ALOGD("%s set mbhl volume is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_VOLUME_STEP_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_volumestep)(value);
+        ALOGD("%s set mbhl volumestep is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_BALANCE_STEP_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_balancestep)(value);
+        ALOGD("%s set mbhl balancestep is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_OUTPUT_GAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.setmbhl_outputgain)(value);
+        ALOGD("%s set mbhl outputgain is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_MODE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_mode)(value);
+        ALOGD("%s set mbhl mode is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_PROCESS_DISCARD_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_processdiscard)(value);
+        ALOGD("%s set mbhl process discard is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_CROSS_LOW_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_lowcross)(value);
+        ALOGD("%s set mbhl lowcross is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_CROSS_MID_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_crossmid)(value);
+        ALOGD("%s set mbhl crossmid is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_ATTACK_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_compattrack)(value);
+        ALOGD("%s set mbhl compattrack is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_lowrelease)(value);
+        ALOGD("%s set mbhl lowrelease is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_RATIO_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,6);
+        (*pContext->gVirtualxapi.setmbhl_complowratio)(value);
+        ALOGD("%s set mbhl complowratio is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_THRESH_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,5);
+        (*pContext->gVirtualxapi.setmbhl_complowthresh)(value);
+        ALOGD("%s set mbhl complowthresh is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,5);
+        (*pContext->gVirtualxapi.setmbhl_lowmakeup)(value);
+        ALOGD("%s set mbhl lowmakeup is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_RELEASE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_compmidrelease)(value);
+        ALOGD("%s set mbhl compmidrelease is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_RATIO_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,6);
+        (*pContext->gVirtualxapi.setmbhl_midratio)(value);
+        ALOGD("%s set mbhl midratio is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_THRESH_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,5);
+        (*pContext->gVirtualxapi.setmbhl_compmidthresh)(value);
+        ALOGD("%s set mbhl compmidthresh is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,5);
+        (*pContext->gVirtualxapi.setmbhl_compmidmakeup)(value);
+        ALOGD("%s set mbhl compmidmakeup is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_comphighrelease)(value);
+        ALOGD("%s set mbhl comphighrelease is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,6);
+        (*pContext->gVirtualxapi.setmbhl_comphighratio)(value);
+        ALOGD("%s set mbhl comphighratio is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,5);
+        (*pContext->gVirtualxapi.setmbhl_comphighthresh)(value);
+        ALOGD("%s set mbhl comphighthresh is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,5);
+        (*pContext->gVirtualxapi.setmbhl_comphighmakeup)(value);
+        ALOGD("%s set mbhl comphighmakeup is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_BOOST_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,11);
+        (*pContext->gVirtualxapi.setmbhl_boost)(value);
+        ALOGD("%s set mbhl boost is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_THRESHOLD_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.setmbhl_threshold)(value);
+        ALOGD("%s set mbhl threshold is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_SLOW_OFFSET_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,3);
+        (*pContext->gVirtualxapi.setmbhl_slowoffset)(value);
+        ALOGD("%s set mbhl slowoffset %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_FAST_ATTACK_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,5);
+        (*pContext->gVirtualxapi.setmbhl_fastattack)(value);
+        ALOGD("%s set mbhl fastattackt %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_FAST_RELEASE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_fastrelease)(value);
+        ALOGD("%s set mbhl fastrelease %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_SLOW_ATTACK_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_slowattrack)(value);
+        ALOGD("%s set mbhl slowattrack %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_SLOW_RELEASE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_slowrelease)(value);
+        ALOGD("%s set mbhl slowrelease %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_DELAY_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_delay)(value);
+        ALOGD("%s set mbhl delay %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_envelopefre)(value);
+        ALOGD("%s set mbhl envelopefre %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settbhdx_enable)(value);
+        ALOGD("%s set tbhdx enable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_MONO_MODE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settbhdx_monomode)(value);
+        ALOGD("%s set tbhdx monomode %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_MAXGAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        MAX(value, GAIN_MAX);
+        (*pContext->gVirtualxapi.settbhdx_maxgain)(value);
+        ALOGD("%s set tbhdx maxgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_SPKSIZE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settbhdx_spksize)(value);
+        ALOGD("%s set tbhdx spksize %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_HP_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settbhdx_hpenable)(value);
+        ALOGD("%s set tbhdx hpenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_TEMP_GAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        MAX(value, GAIN_MAX);
+        MIN(value, GAIN_MIN);
+        (*pContext->gVirtualxapi.settbhdx_tempgain)(value);
+        ALOGD("%s set tbhdx tempgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_PROCESS_DISCARD_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settbhdx_processdiscard)(value);
+        ALOGD("%s set tbhdx process discard %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_HPORDER_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settbhdx_hporder)(value);
+        ALOGD("%s set tbhdx hporder %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setvxlib1_enable)(value);
+        ALOGD("%s set vxlib1 enable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_INPUT_MODE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        if (value > 1)
+            value = 1;
+        pContext->ch_num = value; // here to set input ch num
+        if (pContext->ch_num == 0) {
+            AudioFadeSetFormat(&pContext->gAudFade, 48000, 2, AUDIO_FORMAT_PCM_16_BIT);
+            AudioFadeSetFormat(&pContext->gAudFade1, 48000, 2, AUDIO_FORMAT_PCM_16_BIT);
+        } else {
+            AudioFadeSetFormat(&pContext->gAudFade, 48000, 6, AUDIO_FORMAT_PCM_16_BIT);
+            AudioFadeSetFormat(&pContext->gAudFade1, 48000, 6, AUDIO_FORMAT_PCM_16_BIT);
+        }
+        (*pContext->gVirtualxapi.setvxlib1_inmode)(value);
+        ALOGD("%s set vxlib1 inmode %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_OUTPUT_MODE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setvxlib1_outmode)(value);
+        ALOGD("%s set vxlib1 outmode %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_HEADROOM_GAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.setvxlib1_heardroomgain)(value);
+        ALOGD("%s set vxlib1 heardroomgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,4);
+        (*pContext->gVirtualxapi.setvxlib1_procoutgain)(value);
+        ALOGD("%s set vxlib1 procoutgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_enable)(value);
+        ALOGD("%s set tsx enable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(value);
+        ALOGD("%s set tsx pssvmtrxenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_hghtupmixenable)(value);
+        ALOGD("%s set tsx hghtupmixenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_LPR_GAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,3);
+        (*pContext->gVirtualxapi.settsx_lprgain)(value);
+        ALOGD("%s set tsx lprgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_CENTER_GAIN_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,3);
+        (*pContext->gVirtualxapi.settsx_centergain)(value);
+        ALOGD("%s set tsx centergain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_horizontctl)(value);
+        ALOGD("%s set tsx horizontctl %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,3);
+        (*pContext->gVirtualxapi.settsx_heightmixcoeff)(value);
+        ALOGD("%s set tsx heightmixcoeff %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_PROCESS_DISCARD_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_discard)(value);
+        ALOGD("%s set tsx discard %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HEIGHT_DISCARD_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_heightdiscards)(value);
+        ALOGD("%s set tsx heightdiscards %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_FRNT_CTRL_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,3);
+        (*pContext->gVirtualxapi.settsx_frntctrl)(value);
+        ALOGD("%s set tsx frntctrl %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_SRND_CTRL_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,3);
+        (*pContext->gVirtualxapi.settsx_surroundctrl)(value);
+        ALOGD("%s set tsx surroundctrl %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DC_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_dcenable)(value);
+        ALOGD("%s set tsx dcenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DC_CONTROL_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.settsx_dccontrol)(value);
+        ALOGD("%s set tsx dccontrol %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DEF_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settsx_defenable)(value);
+        ALOGD("%s set tsx defenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DEF_CONTROL_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP32(scale,2);
+        (*pContext->gVirtualxapi.settsx_defcontrol)(value);
+        ALOGD("%s set tsx defcontrol %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settruvolume_ctren)(value);
+        ALOGD("%s set truvolume ctren %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settruvolume_ctrtarget)(value);
+        ALOGD("%s set truvolume ctrtarget %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.settruvolume_ctrpreset)(value);
+        ALOGD("%s set truvolume ctrpreset %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_LOUDNESS_CONTROL_IO_MODE_I32:
+         if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setlc_inmode)(value);
+        ALOGD("%s set lc inmode %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        pContext->lowcrossfreq = *(float*)pValue;
+        (*pContext->gVirtualxapi.setmbhl_FilterDesign)(pContext->lowcrossfreq,pContext->midcrossfreq);
+        ALOGD("%s set mbhl filter design low freq %f and mid freq %f",__FUNCTION__,pContext->lowcrossfreq,pContext->midcrossfreq);
+        break;
+    case DTS_PARAM_MBHL_APP_FRT_MIDCROSS_F32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        pContext->midcrossfreq = *(float*)pValue;
+        (*pContext->gVirtualxapi.setmbhl_FilterDesign)(pContext->lowcrossfreq,pContext->midcrossfreq);
+        ALOGD("%s set mbhl filter design low freq %f and mid freq %f",__FUNCTION__,pContext->lowcrossfreq,pContext->midcrossfreq);
+        break;
+    case DTS_PARAM_TBHDX_APP_SPKSIZE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        pContext->spksize = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.gettbhdx_tempgain)(&basslvl);
+        (*pContext->gVirtualxapi.settbhd_FilterDesign)(pContext->spksize,((float)basslvl)/1073741824.0f,pContext->hpratio,pContext->extbass);
+        ALOGD("%s set tbhd filter design spksize %d  hpratio %f extbass %f",__FUNCTION__,pContext->spksize,pContext->hpratio,pContext->extbass);
+        break;
+    case DTS_PARAM_TBHDX_APP_HPRATIO_F32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        pContext->hpratio = *(float *)pValue;
+        (*pContext->gVirtualxapi.gettbhdx_tempgain)(&basslvl);
+        (*pContext->gVirtualxapi.settbhd_FilterDesign)(pContext->spksize,((float)basslvl)/1073741824.0f,pContext->hpratio,pContext->extbass);
+        ALOGD("%s set tbhd filter design spksize %d  hpratio %f extbass %f",__FUNCTION__,pContext->spksize,pContext->hpratio,pContext->extbass);
+        break;
+    case DTS_PARAM_TBHDX_APP_EXTBASS_F32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        pContext->extbass = *(float *)pValue;
+        (*pContext->gVirtualxapi.gettbhdx_tempgain)(&basslvl);
+        (*pContext->gVirtualxapi.settbhd_FilterDesign)(pContext->spksize,((float)basslvl)/1073741824.0f,pContext->hpratio,pContext->extbass);
+        ALOGD("%s set tbhd filter design spksize %d  hpratio %f extbass %f",__FUNCTION__,pContext->spksize,pContext->hpratio,pContext->extbass);
+        break;
+    case DTS_PARAM_AEQ_ENABLE_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.seteq_enable)(value);
+        ALOGD("%s set eq enable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_AEQ_DISCARD_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.seteq_discard)(value);
+        ALOGD("%s set eq discard %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_AEQ_INPUT_GAIN_I16:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP16(scale,1);
+        if (value > 32767)
+            value = 32767;
+        (*pContext->gVirtualxapi.seteq_inputG)(value);
+        ALOGD("%s set eq input gain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_AEQ_OUTPUT_GAIN_I16:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP16(scale,1);
+        if (value > 32767)
+            value = 32767;
+        (*pContext->gVirtualxapi.seteq_outputG)(value);
+        ALOGD("%s set eq output gain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_AEQ_BYPASS_GAIN_I16:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        scale = *(float *)pValue;
+        value = FXP16(scale,1);
+        if (value > 32767)
+            value = 32767;
+        (*pContext->gVirtualxapi.seteq_bypassG)(value);
+        ALOGD("%s set eq bypass gain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_AEQ_LR_LINK_I32:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t*)pValue;
+        (*pContext->gVirtualxapi.seteq_band)(0,(void*)&value);
+        ALOGD("%s set eq link flag is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_AEQ_BAND_Fre:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        (*pContext->gVirtualxapi.seteq_band)(1,(void*)p);
+        break;
+    case DTS_PARAM_AEQ_BAND_Gain:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        (*pContext->gVirtualxapi.seteq_band)(2,(void*)p);
+        break;
+    case DTS_PARAM_AEQ_BAND_Q:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        (*pContext->gVirtualxapi.seteq_band)(3,(void*)p);
+        break;
+    case DTS_PARAM_AEQ_BAND_type:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        (*pContext->gVirtualxapi.seteq_band)(4,(void*)p);
+        break;
+    case DTS_PARAM_CHANNEL_NUM:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = *(int32_t *)pValue;
+        if (value == 6) {
+            (*pContext->gVirtualxapi.gettsx_discard)(&tsx_discard);
+            if (tsx_discard) {
+                property_set("media.libplayer.dtsMulChPcm","false");
+            } else {
+                property_set("media.libplayer.dtsMulChPcm","true");
+            }
+        } else {
+            property_set("media.libplayer.dtsMulChPcm","false");
+        }
+        break;
+    case AUDIO_DTS_PARAM_TYPE_NONE:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        (*pContext->gVirtualxapi.setvxlib1_enable)((int32_t)*p++);
+        (*pContext->gVirtualxapi.settsx_dcenable)((int32_t)*p);
+        break;
+    case AUDIO_DTS_PARAM_TYPE_TRU_SURROUND:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        value = (int32_t)*p++;
+        ALOGV("value1 is %d",value);
+        if (value > 1)
+            value = 1;
+        else if (value < 0)
+            value = 0;
+        data->vxlib_enable = value;
+        scale = *p++;
+        if (scale < 0.125)
+            scale = 0.125;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale2 is %f",scale);
+        pContext->totaldb = AmplToDb(scale);
+        value = FXP32(scale,2);
+        data->headroom_gain = value;
+        scale = *p++;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 4.0)
+            scale = 4.0;
+        ALOGV("scale3 is %f",scale);
+        value = FXP32(scale,4);
+        //data->output_gain = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value4 is %d",value);
+        if (data->vxtrusurround_enable != value) {
+            pContext->bUseFade1 = 1;
+        } else {
+            pContext->bUseFade1 = 0;
+        }
+        data->vxtrusurround_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value5 is %d",value);
+        data->upmixer_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value6 is %d",value);
+        data->horizontaleffect_control = value;
+        scale = *p++;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 2.0)
+            scale = 2.0;
+        ALOGV("scale7 is %f",scale);
+        value = FXP32(scale,3);
+        data->frontwidening_control = value;
+        scale = *p;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 2.0)
+            scale = 2.0;
+        ALOGV("scale8 is %f",scale);
+        value = FXP32(scale,3);
+        data->surroundwidening_control = value;
+        break;
+    case AUDIO_DTS_PARAM_TYPE_CC3D:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value1 is %d",value);
+        data->vxlib_enable = value;
+        scale = *p++;
+        if (scale < 0.125)
+            scale = 0.125;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale2 is %f",scale);
+        value = FXP32(scale,2);
+        data->headroom_gain = value;
+        scale = *p++;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 4.0)
+            scale = 4.0;
+        ALOGV("scale3 is %f",scale);
+        value = FXP32(scale,4);
+        //data->output_gain = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value4 is %d",value);
+        //data->vxtrusurround_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value5 is %d",value);
+        data->upmixer_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value6 is %d",value);
+        if (data->heightupmix_enable != value) {
+            pContext->bUseFade2 = 1;
+        } else {
+            pContext->bUseFade2 = 0;
+        }
+        data->heightupmix_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value7 is %d",value);
+        data->height_discard = value;
+        scale = *p;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 2.0)
+            scale = 2.0;
+        ALOGV("scale8 is %f",scale);
+        value = FXP32(scale,3);
+        data->heightmix_coeff = value;
+        break;
+    case AUDIO_DTS_PARAM_TYPE_TRU_BASS:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value1 is %d",value);
+        data->vxlib_enable = value;
+        scale = *p++;
+        if (scale < 0.125)
+            scale = 0.125;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale2 is %f",scale);
+        value = FXP32(scale,2);
+        data->headroom_gain = value;
+        scale = *p++;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 4.0)
+            scale = 4.0;
+        ALOGV("scale3 is %f",scale);
+        value = FXP32(scale,4);
+        //data->output_gain = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value4 is %d",value);
+        if (data->tbhdx_enable != value) {
+            pContext->bUseFade3 = 1;
+        } else {
+            pContext->bUseFade3 = 0;
+        }
+        data->tbhdx_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value5 is %d",value);
+        data->monomode_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 12)
+            value = 12;
+        ALOGV("value6 is %d",value);
+        data->speaker_size = value;
+        scale = *p++;
+        if (scale < 0.0)
+            scale = 0.0;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale7 is %f",scale);
+        value = FXP32(scale,2);
+        MAX(value, GAIN_MAX);
+        MIN(value, GAIN_MIN);
+        data->tmporal_gain = value;
+        scale = *p++;
+        if (scale < 0.0)
+            scale = 0.0;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale8 is %f",scale);
+        value = FXP32(scale,2);
+        MAX(value, GAIN_MAX);
+        data->max_gain = value;
+        value = (int32_t)*p++;
+        if (value < 1)
+            value = 1;
+        else if (value > 8)
+            value = 8;
+        ALOGV("value9 is %d",value);
+        data->hpfo = value;
+        value = (int32_t)*p;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value10 is %d",value);
+        data->highpass_enble = value;
+        break;
+    case AUDIO_DTS_PARAM_TYPE_TRU_DIALOG:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        value = (int32_t)*p++;
+        ALOGV("value1 is %d",value);
+        data->vxlib_enable = value;
+        scale = *p++;
+        if (scale < 0.125)
+            scale = 0.125;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale2 is %f",scale);
+        value = FXP32(scale,2);
+        data->headroom_gain = value;
+        scale = *p++;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 4.0)
+            scale = 4.0;
+        ALOGV("scale3 is %f",scale);
+        value = FXP32(scale,4);
+        //data->output_gain = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value4 is %d",value);
+        //data->vxtrusurround_enable = value;
+        scale = *p++;
+        if (scale < 0.0)
+            scale = 0.0;
+        else if (scale > 2.0)
+            scale = 2.0;
+        ALOGV("scale5 is %f",scale);
+        value = FXP32(scale,3);
+        data->phantomcenter_mixlevel = value;
+        scale = *p++;
+        if (scale < 1.0)
+            scale = 1.0;
+        else if (scale > 2.0)
+            scale = 2.0;
+        ALOGV("scale6 is %f",scale);
+        value = FXP32(scale,3);
+        data->center_gain = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value7 is %d",value);
+        data->vxdialogclarity_enable = value;
+        scale = *p;
+        if (scale < 0.0)
+            scale = 0.0;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale8 is %f",scale);
+        value = FXP32(scale,2);
+        data->vxdialogclarity_level = value;
+        break;
+    case AUDIO_DTS_PARAM_TYPE_DEFINATION:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value1 is %d",value);
+        data->vxlib_enable = value;
+        scale = *p++;
+        if (scale < 0.125)
+            scale = 0.125;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale2 is %f",scale);
+        value = FXP32(scale,2);
+        data->headroom_gain = value;
+        scale = *p++;
+        if (scale < 0.5)
+            scale = 0.5;
+        else if (scale > 4.0)
+            scale = 4.0;
+        ALOGV("scale3 is %f",scale);
+        pContext->totaldb += AmplToDb(scale);
+        value = FXP32(scale,4);
+        data->output_gain = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value4 is %d",value);
+        //data->vxtrusurround_enable = value;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value5 is %d",value);
+        if (data->vxdefinition_enable != value)
+            pContext->bUseFade4 = 1;
+        else
+            pContext->bUseFade4 = 0;
+        data->vxdefinition_enable = value;
+        scale = *p;
+        if (scale < 0.0)
+            scale = 0.0;
+        else if (scale > 1.0)
+            scale = 1.0;
+        ALOGV("scale6 is %f",scale);
+        value = FXP32(scale,2);
+        data->vxdefinition_level = value;
+        pContext->totaldb = pContext->totaldb - 24 + AmplToDb(data->vxcfg.mbhl.mbhl_boost) + AmplToDb(data->vxcfg.mbhl.mbhl_outputgain)
+            - AmplToDb(data->vxcfg.mbhl.mbhl_reflevel);
+        if (pContext->bUseFade1 || pContext->bUseFade2 || pContext->bUseFade3 || pContext->bUseFade4) {
+            pContext->bUseFade = 1;
+            pContext->samplecounter = 0;
+            AudioFade_t *pAudioFade = (AudioFade_t *) & (pContext->gAudFade);
+            AudioFade_t *pAudioFade1 = (AudioFade_t *) & (pContext->gAudFade1);
+            AudioFadeInit(pAudioFade, fadeLinear, 10, 0);
+            AudioFadeInit(pAudioFade1, fadeLinear, 10, 0);
+            AudioFadeSetState(pAudioFade, AUD_FADE_OUT_START);
+            AudioFadeSetState(pAudioFade1, AUD_FADE_MUTE);
+        } else {
+            pContext->bUseFade = 0;
+            (*pContext->gVirtualxapi.setvxlib1_enable)(data->vxlib_enable);
+            (*pContext->gVirtualxapi.setvxlib1_heardroomgain)(data->headroom_gain);
+            //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+            (*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+            (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(data->upmixer_enable);
+            (*pContext->gVirtualxapi.settsx_horizontctl)(data->horizontaleffect_control);
+            (*pContext->gVirtualxapi.settsx_frntctrl)(data->frontwidening_control);
+            (*pContext->gVirtualxapi.settsx_surroundctrl)(data->surroundwidening_control);
+            //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+            //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+            (*pContext->gVirtualxapi.settsx_hghtupmixenable)(data->heightupmix_enable);
+            (*pContext->gVirtualxapi.settsx_heightdiscards)(data->height_discard);
+            (*pContext->gVirtualxapi.settsx_heightmixcoeff)(data->heightmix_coeff);
+            //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+            (*pContext->gVirtualxapi.settbhdx_enable)(data->tbhdx_enable);
+            (*pContext->gVirtualxapi.settbhdx_monomode)(data->monomode_enable);
+            (*pContext->gVirtualxapi.settbhdx_spksize)(data->speaker_size);
+            (*pContext->gVirtualxapi.settbhdx_tempgain)(data->tmporal_gain);
+            (*pContext->gVirtualxapi.settbhdx_maxgain)(data->max_gain);
+            (*pContext->gVirtualxapi.settbhdx_hporder)(data->hpfo);
+            (*pContext->gVirtualxapi.settbhdx_hpenable)(data->highpass_enble);
+            //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+            //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+            (*pContext->gVirtualxapi.settsx_lprgain)(data->phantomcenter_mixlevel);
+            (*pContext->gVirtualxapi.settsx_centergain)(data->center_gain);
+            (*pContext->gVirtualxapi.settsx_dcenable)(data->vxdialogclarity_enable);
+            (*pContext->gVirtualxapi.settsx_dccontrol)(data->vxdialogclarity_level);
+            (*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+            //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+            (*pContext->gVirtualxapi.settsx_defenable)(data->vxdefinition_enable);
+            (*pContext->gVirtualxapi.settsx_defcontrol)(data->vxdefinition_level);
+        }
+        break;
+    case AUDIO_DTS_PARAM_TYPE_TRU_VOLUME:
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        p = (float *)pValue;
+        value = (int32_t)*p++;
+        if (value < 0)
+            value = 0;
+        else if (value > 1)
+            value = 1;
+        ALOGV("value1 is %d",value);
+        (*pContext->gVirtualxapi.settruvolume_ctren)(value);
+        value = (int32_t)*p++;
+        if (value < -40)
+            value = -40;
+        else if (value > 0)
+            value = 0;
+        ALOGV("value2 is %d",value);
+        (*pContext->gVirtualxapi.settruvolume_ctrtarget)(value);
+        value = (int32_t)*p;
+        if (value < 0)
+            value = 0;
+        else if (value > 2)
+            value = 2;
+        ALOGV("value3 is %d",value);
+        (*pContext->gVirtualxapi.settruvolume_ctrpreset)(value);
+        break;
+    default:
+        ALOGE("%s: unknown param %08x", __FUNCTION__, param);
+        return -EINVAL;
+    }
     return 0;
 }
 
@@ -2846,817 +3231,861 @@ int Virtualx_getParameter(vxContext *pContext, void *pParam, size_t *pValueSize,
     int32_t value;
     vxdata *data = &pContext->gvxdata;
     switch (param) {
-        case VIRTUALX_PARAM_ENABLE:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = data->enable;
-            *(uint32_t *) pValue = value;
-            ALOGD("%s: Get status -> %s", __FUNCTION__, VXStatusstr[value]);
-            break;
-        case VIRTUALX_PARAM_DIALOGCLARTY_MODE:
-             if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = data->dialogclarity_mode;
-            *(uint32_t *) pValue = value;
-            ALOGD("%s:dialogclarity mode is %s",__FUNCTION__,VXDialogClarityModestr[value]);
-            break;
-        case VIRTUALX_PARAM_SURROUND_MODE:
-             if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            value = data->surround_mode;
-            *(uint32_t *) pValue = value;
-            ALOGD("%s: Get Surround Mode %s", __FUNCTION__,VXSurroundModestr[data->surround_mode]);
-            break;
-        case DTS_PARAM_MBHL_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_enable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl enable is %d", __FUNCTION__, value);
-            break;
-         case DTS_PARAM_MBHL_BYPASS_GAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_bypassgain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhlbypassgain %d", __FUNCTION__, value);
-            break;
-         case DTS_PARAM_MBHL_REFERENCE_LEVEL_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_reflevel)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl reflevel %d", __FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_VOLUME_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_volume)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl volume is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_VOLUME_STEP_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_volumestep)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl volumestep is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_BALANCE_STEP_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_balancestep)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl balancestep is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_OUTPUT_GAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_outputgain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl outputgain is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_MODE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_mode)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl mode is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_PROCESS_DISCARD_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_processdiscard)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl process discard is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_CROSS_LOW_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_lowcross)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl lowcross is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_CROSS_MID_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_crossmid)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl crossmid is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_ATTACK_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_compattrack)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl compattrack is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_lowrelease)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl lowrelease is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_RATIO_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_complowratio)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl complowratio is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_THRESH_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_complowthresh)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl complowthresh is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_lowmakeup)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl lowmakeup is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_RELEASE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_compmidrelease)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl compmidrelease is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_RATIO_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_midratio)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl midratio is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_THRESH_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_compmidthresh)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl compmidthresh is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_compmidmakeup)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl compmidmakeup is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
+    case VIRTUALX_PARAM_ENABLE:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = data->enable;
+        *(uint32_t *) pValue = value;
+        ALOGD("%s: Get status -> %s", __FUNCTION__, VXStatusstr[value]);
+        break;
+    case VIRTUALX_PARAM_DIALOGCLARTY_MODE:
+         if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = data->dialogclarity_mode;
+        *(uint32_t *) pValue = value;
+        ALOGD("%s:dialogclarity mode is %s",__FUNCTION__,VXDialogClarityModestr[value]);
+        break;
+    case VIRTUALX_PARAM_SURROUND_MODE:
+         if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        value = data->surround_mode;
+        *(uint32_t *) pValue = value;
+        ALOGD("%s: Get Surround Mode %s", __FUNCTION__,VXSurroundModestr[data->surround_mode]);
+        break;
+    case DTS_PARAM_MBHL_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_enable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl enable is %d", __FUNCTION__, value);
+        break;
+     case DTS_PARAM_MBHL_BYPASS_GAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_bypassgain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhlbypassgain %d", __FUNCTION__, value);
+        break;
+     case DTS_PARAM_MBHL_REFERENCE_LEVEL_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_reflevel)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl reflevel %d", __FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_VOLUME_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_volume)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl volume is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_VOLUME_STEP_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_volumestep)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl volumestep is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_BALANCE_STEP_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_balancestep)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl balancestep is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_OUTPUT_GAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_outputgain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl outputgain is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_MODE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_mode)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl mode is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_PROCESS_DISCARD_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_processdiscard)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl process discard is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_CROSS_LOW_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_lowcross)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl lowcross is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_CROSS_MID_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_crossmid)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl crossmid is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_ATTACK_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_compattrack)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl compattrack is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_lowrelease)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl lowrelease is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_RATIO_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_complowratio)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl complowratio is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_THRESH_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_complowthresh)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl complowthresh is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_lowmakeup)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl lowmakeup is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_RELEASE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_compmidrelease)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl compmidrelease is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_RATIO_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_midratio)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl midratio is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_THRESH_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_compmidthresh)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl compmidthresh is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_compmidmakeup)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl compmidmakeup is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
 
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.getmbhl_comphighrelease)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl comphighrelease is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_comphighratio)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl comphighratio is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32:
-             if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_comphighthresh)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl comphighthresh is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_comphighmakeup)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl comphighmakeup is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_BOOST_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_boost)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl boost is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_THRESHOLD_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_threshold)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl threshold is %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_SLOW_OFFSET_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_slowoffset)(&value);
-            ALOGD("%s get mbhl slowoffset %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_FAST_ATTACK_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_fastattack)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl fastattackt %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_FAST_RELEASE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_fastrelease)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl fastrelease %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_SLOW_ATTACK_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_slowattrack)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl slowattrack %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_SLOW_RELEASE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.getmbhl_comphighrelease)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl comphighrelease is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_comphighratio)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl comphighratio is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32:
+         if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_comphighthresh)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl comphighthresh is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_comphighmakeup)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl comphighmakeup is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_BOOST_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_boost)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl boost is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_THRESHOLD_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_threshold)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl threshold is %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_SLOW_OFFSET_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_slowoffset)(&value);
+        ALOGD("%s get mbhl slowoffset %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_FAST_ATTACK_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_fastattack)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl fastattackt %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_FAST_RELEASE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_fastrelease)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl fastrelease %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_SLOW_ATTACK_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_slowattrack)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl slowattrack %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_SLOW_RELEASE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
 
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.setmbhl_slowrelease)(value);
-            ALOGD("%s set mbhl slowrelease %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_DELAY_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getmbhl_delay)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl delay %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.setmbhl_slowrelease)(value);
+        ALOGD("%s set mbhl slowrelease %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_DELAY_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getmbhl_delay)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl delay %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
 
-            value = *(int32_t *)pValue;
-            (*pContext->gVirtualxapi.getmbhl_envelopefre)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get mbhl envelopefre %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettbhdx_enable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx enable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_MONO_MODE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettbhdx_monomode)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx monomode %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_MAXGAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettbhdx_maxgain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx maxgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_SPKSIZE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettbhdx_spksize)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx spksize %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_HP_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettbhdx_hpenable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx hpenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_TEMP_GAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettbhdx_tempgain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx tempgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_PROCESS_DISCARD_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getthbdx_processdiscard)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx process discard %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TBHDX_HPORDER_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettbhdx_hporder)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tbhdx hporder %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getvxlib1_enable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get vxlib1 enable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_INPUT_MODE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getvxlib1_inmode)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get vxlib1 inmode %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_OUTPUT_MODE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getvxlib1_outmode)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get vxlib1 outmode %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_HEADROOM_GAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getvxlib1_heardroomgain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get vxlib1 heardroomgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.getvxlib1_procoutgain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get vxlib1 procoutgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_enable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx enable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_pssvmtrxenable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx pssvmtrxenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_hghtupmixenable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx hghtupmixenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_LPR_GAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_lprgain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx lprgain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_CENTER_GAIN_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (pContext->gVirtualxapi.gettsx_centergain)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx centergain %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_horizontctl)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx horizontctl %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_heightmixcoeff)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx heightmixcoeff %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_PROCESS_DISCARD_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_discard)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx discard %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_HEIGHT_DISCARD_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_heightdiscards)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx heightdiscards %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_FRNT_CTRL_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_frntctrl)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx frntctrl %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_TSX_SRND_CTRL_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_surroundctrl)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx surroundctrl %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DC_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_dcenable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx dcenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DC_CONTROL_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_dccontrol)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx dccontrol %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DEF_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_defenable)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx defenable %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_VX_DEF_CONTROL_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettsx_defcontrol)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get tsx defcontrol %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettruvolume_ctren)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get truvolume ctren %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettruvolume_ctrtarget)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get truvolume ctrtarget %d",__FUNCTION__, value);
-            break;
-        case DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32:
-            if (*pValueSize < sizeof(uint32_t)) {
-                *pValueSize = 0;
-                return -EINVAL;
-            }
-            if (!pContext->gVXLibHandler) {
-                return 0;
-            }
-            (*pContext->gVirtualxapi.gettruvolume_ctrpreset)(&value);
-            *(int32_t *) pValue = value;
-            ALOGD("%s get truvolume ctrpreset %d",__FUNCTION__, value);
-            break;
-        default:
-           ALOGE("%s: unknown param %d", __FUNCTION__, param);
-           return -EINVAL;
+        value = *(int32_t *)pValue;
+        (*pContext->gVirtualxapi.getmbhl_envelopefre)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get mbhl envelopefre %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettbhdx_enable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx enable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_MONO_MODE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettbhdx_monomode)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx monomode %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_MAXGAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettbhdx_maxgain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx maxgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_SPKSIZE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettbhdx_spksize)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx spksize %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_HP_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettbhdx_hpenable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx hpenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_TEMP_GAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettbhdx_tempgain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx tempgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_PROCESS_DISCARD_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getthbdx_processdiscard)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx process discard %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TBHDX_HPORDER_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettbhdx_hporder)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tbhdx hporder %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getvxlib1_enable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get vxlib1 enable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_INPUT_MODE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getvxlib1_inmode)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get vxlib1 inmode %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_OUTPUT_MODE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getvxlib1_outmode)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get vxlib1 outmode %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_HEADROOM_GAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getvxlib1_heardroomgain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get vxlib1 heardroomgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.getvxlib1_procoutgain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get vxlib1 procoutgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_enable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx enable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_pssvmtrxenable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx pssvmtrxenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_hghtupmixenable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx hghtupmixenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_LPR_GAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_lprgain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx lprgain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_CENTER_GAIN_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_centergain)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx centergain %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_horizontctl)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx horizontctl %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_heightmixcoeff)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx heightmixcoeff %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_PROCESS_DISCARD_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_discard)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx discard %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_HEIGHT_DISCARD_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_heightdiscards)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx heightdiscards %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_FRNT_CTRL_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_frntctrl)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx frntctrl %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_TSX_SRND_CTRL_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_surroundctrl)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx surroundctrl %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DC_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_dcenable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx dcenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DC_CONTROL_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_dccontrol)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx dccontrol %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DEF_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_defenable)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx defenable %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_VX_DEF_CONTROL_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettsx_defcontrol)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get tsx defcontrol %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettruvolume_ctren)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get truvolume ctren %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettruvolume_ctrtarget)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get truvolume ctrtarget %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.gettruvolume_ctrpreset)(&value);
+        *(int32_t *) pValue = value;
+        ALOGD("%s get truvolume ctrpreset %d",__FUNCTION__, value);
+        break;
+    case DTS_PARAM_AEQ_ENABLE_I32:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.geteq_enable)(&value);
+        *(int32_t *) pValue = value;
+        break;
+    case DTS_PARAM_AEQ_INPUT_GAIN_I16:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.geteq_inputG)(&value);
+        *(int32_t *) pValue = value;
+        break;
+    case DTS_PARAM_AEQ_OUTPUT_GAIN_I16:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.geteq_outputG)(&value);
+        *(int32_t *) pValue = value;
+        break;
+    case DTS_PARAM_AEQ_BYPASS_GAIN_I16:
+        if (*pValueSize < sizeof(uint32_t)) {
+            *pValueSize = 0;
+            return -EINVAL;
+        }
+        if (!pContext->gVXLibHandler) {
+            return 0;
+        }
+        (*pContext->gVirtualxapi.geteq_bypassG)(&value);
+        *(int32_t *) pValue = value;
+        break;
+    default:
+       ALOGE("%s: unknown param %d", __FUNCTION__, param);
+       return -EINVAL;
     }
     return 0;
 }
@@ -3667,6 +4096,204 @@ int Virtualx_release(vxContext *pContext)
        (*pContext->gVirtualxapi.VX_release)();
     }
     return 0;
+}
+
+int Virtualx_Dofade(vxContext *pContext, void * rawbuf, int fadenum, unsigned int nSamples)
+{
+    AudioFade_t *pAudFade = (AudioFade_t *) & (pContext->gAudFade);
+    AudioFade_t *pAudFade1 = (AudioFade_t *) & (pContext->gAudFade1);
+    vxdata   *data = &pContext->gvxdata;
+    switch (fadenum) {
+    case 1: {
+        switch (pAudFade->mFadeState) {
+        case AUD_FADE_OUT_START: {
+          pAudFade->mTargetVolume = 0;
+          pAudFade->mStartVolume = 1 << 16;
+          pAudFade->mCurrentVolume = 1 << 16;
+          pAudFade->mfadeTimeUsed = 0;
+          pAudFade->mfadeFramesUsed = 0;
+          pAudFade->mfadeTimeTotal = DEFAULT_FADE_OUT_MS;
+          pAudFade->muteCounts = 1;
+          AudioFadeBufferdelay(pAudFade, rawbuf, nSamples,0);
+          pAudFade->mFadeState = AUD_FADE_OUT;
+        }
+        break;
+        case AUD_FADE_OUT: {
+          // do fade out process
+          if (pAudFade->mCurrentVolume != 0) {
+              AudioFadeBufferdelay(pAudFade, rawbuf, nSamples,0);
+          } else {
+              pAudFade->mFadeState = AUD_FADE_MUTE;
+              mutePCMBuf(pAudFade, rawbuf, nSamples);
+          }
+        }
+        break;
+        case AUD_FADE_MUTE: {
+          if (pAudFade->muteCounts <= 0) {
+              pAudFade->mFadeState = AUD_FADE_IN;
+              // slowly increase audio volume
+              pAudFade->mTargetVolume = 1 << 16;
+              pAudFade->mStartVolume = 0;
+              pAudFade->mCurrentVolume = 0;
+              pAudFade->mfadeTimeUsed = 0;
+              pAudFade->mfadeFramesUsed = 0;
+              pAudFade->mfadeTimeTotal = DEFAULT_FADE_IN_MS;
+              // do actrually setting
+              (*pContext->gVirtualxapi.setvxlib1_enable)(data->vxlib_enable);
+              (*pContext->gVirtualxapi.setvxlib1_heardroomgain)(data->headroom_gain);
+              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+              (*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+              (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(data->upmixer_enable);
+              (*pContext->gVirtualxapi.settsx_horizontctl)(data->horizontaleffect_control);
+              (*pContext->gVirtualxapi.settsx_frntctrl)(data->frontwidening_control);
+              (*pContext->gVirtualxapi.settsx_surroundctrl)(data->surroundwidening_control);
+              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+              //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+              (*pContext->gVirtualxapi.settsx_hghtupmixenable)(data->heightupmix_enable);
+              (*pContext->gVirtualxapi.settsx_heightdiscards)(data->height_discard);
+              (*pContext->gVirtualxapi.settsx_heightmixcoeff)(data->heightmix_coeff);
+              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+              (*pContext->gVirtualxapi.settbhdx_enable)(data->tbhdx_enable);
+              (*pContext->gVirtualxapi.settbhdx_monomode)(data->monomode_enable);
+              (*pContext->gVirtualxapi.settbhdx_spksize)(data->speaker_size);
+              (*pContext->gVirtualxapi.settbhdx_tempgain)(data->tmporal_gain);
+              (*pContext->gVirtualxapi.settbhdx_maxgain)(data->max_gain);
+              (*pContext->gVirtualxapi.settbhdx_hporder)(data->hpfo);
+              (*pContext->gVirtualxapi.settbhdx_hpenable)(data->highpass_enble);
+              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+              //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+              (*pContext->gVirtualxapi.settsx_lprgain)(data->phantomcenter_mixlevel);
+              (*pContext->gVirtualxapi.settsx_centergain)(data->center_gain);
+              (*pContext->gVirtualxapi.settsx_dcenable)(data->vxdialogclarity_enable);
+              (*pContext->gVirtualxapi.settsx_dccontrol)(data->vxdialogclarity_level);
+              (*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
+              //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
+              (*pContext->gVirtualxapi.settsx_defenable)(data->vxdefinition_enable);
+              (*pContext->gVirtualxapi.settsx_defcontrol)(data->vxdefinition_level);
+              mutePCMBuf(pAudFade, rawbuf, nSamples);
+          } else {
+              mutePCMBuf(pAudFade, rawbuf, nSamples);
+              pAudFade->muteCounts--;
+          }
+        }
+        break;
+        case AUD_FADE_IN: {
+          AudioFadeBufferdelay(pAudFade, rawbuf, nSamples, 0);
+          if (pAudFade->mCurrentVolume == 1 << 16) {
+              pAudFade->mFadeState = AUD_FADE_IDLE;
+          }
+        }
+        break;
+        case AUD_FADE_IDLE:
+          // do nothing
+          break;
+        default:
+          break;
+        }
+    }
+    break;
+    case 2: {
+        switch (pAudFade1->mFadeState) {
+        case AUD_FADE_MUTE: {
+            pContext->samplecounter += nSamples;
+            if (pContext->samplecounter >= (data->latency - (data->latency % nSamples))) {
+                pAudFade1->mFadeState = AUD_FADE_IN_START;
+            }
+            mutePCMBuf(pAudFade1, rawbuf, nSamples);
+        }
+        break;
+        case AUD_FADE_IN_START: {
+            pAudFade1->mTargetVolume = 1 << 16;
+            pAudFade1->mStartVolume = 0;
+            pAudFade1->mCurrentVolume = 0;
+            pAudFade1->mfadeTimeUsed = 0;
+            pAudFade1->mfadeFramesUsed = 0;
+            pAudFade1->mfadeTimeTotal = DEFAULT_FADE_IN_MS;
+            pAudFade1->muteCounts = 2;
+            AudioFadeBufferdelay(pAudFade1, rawbuf, nSamples, (data->latency % nSamples));
+            pAudFade1->mFadeState = AUD_FADE_IN;
+        }
+        break;
+        case AUD_FADE_IN: {
+            // do fade out process
+            if (pAudFade1->mCurrentVolume != 1 << 16) {
+                AudioFadeBufferdelay(pAudFade1, rawbuf, nSamples, 0);
+            } else {
+                pAudFade1->mFadeState = AUD_FADE_HOLD;
+
+            }
+        }
+        break;
+        case AUD_FADE_HOLD: {
+            if (pAudFade1->muteCounts <= 0) {
+                pAudFade1->mFadeState = AUD_FADE_OUT;
+                // slowly increase audio volume
+                pAudFade1->mTargetVolume = 0;
+                pAudFade1->mStartVolume = 1 << 16;
+                pAudFade1->mCurrentVolume = 1 << 16;
+                pAudFade1->mfadeTimeUsed = 0;
+                pAudFade1->mfadeFramesUsed = 0;
+                pAudFade1->mfadeTimeTotal = DEFAULT_FADE_OUT_MS;
+            } else {
+                pAudFade1->muteCounts--;
+            }
+        }
+        break;
+        case AUD_FADE_OUT: {
+            AudioFadeBufferdelay(pAudFade1, rawbuf, nSamples, 0);
+            if (pAudFade1->mCurrentVolume == 0) {
+                pAudFade1->mFadeState = AUD_FADE_IDLE;
+            }
+        }
+        break;
+        case AUD_FADE_IDLE:
+            // do nothing
+            mutePCMBuf(pAudFade1, rawbuf, nSamples);
+        break;
+        default:
+            break;
+        }
+    }
+    break;
+    }
+    return 0;
+}
+static inline int16_t clamp16(int32_t sample)
+{
+    if ((sample >> 15) ^ (sample >> 31)) {
+        sample = 0x7FFF ^ (sample >> 31);
+    }
+    return sample;
+}
+
+static inline int32_t clamp32(int64_t sample)
+{
+    if ((sample >> 31) ^ (sample >> 63)) {
+        sample = 0x7FFFFFFF ^ (sample >> 63);
+    }
+    return sample;
+}
+
+void apply_volume(float volume, void *buf, int sample_size, int bytes)
+{
+    int16_t *input16 = (int16_t *)buf;
+    int32_t *input32 = (int32_t *)buf;
+    unsigned int i = 0;
+
+    if (sample_size == 2) {
+        for (i = 0; i < bytes / sizeof(int16_t); i++) {
+            int32_t samp = (int32_t)(input16[i]);
+            input16[i] = clamp16((int32_t)(volume * samp));
+        }
+    } else if (sample_size == 4) {
+        for (i = 0; i < bytes / sizeof(int32_t); i++) {
+            int64_t samp = (int64_t)(input32[i]);
+            input32[i] = clamp32((int64_t)(volume * samp));
+        }
+    } else {
+        ALOGE("%s, unsupported audio format: %d!\n", __FUNCTION__, sample_size);
+    }
+    return;
 }
 
 //-------------------Effect Control Interface Implementation--------------------------
@@ -3686,75 +4313,117 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
     if (pContext->state != VIRTUALX_STATE_ACTIVE)
         return -ENODATA;
 
-    int16_t   *in  = (int16_t *)inBuffer->raw;
-    int16_t   *out = (int16_t *)outBuffer->raw;
-    vxdata *data = &pContext->gvxdata;
+    int16_t  *in   = (int16_t *)inBuffer->raw;
+    int16_t  *out  = (int16_t *)outBuffer->raw;
+    int32_t  byte_counter;
+    if (pContext->ch_num == 0) {
+        byte_counter = inBuffer->frameCount * sizeof(int16_t) * 2;
+    } else {
+        byte_counter = inBuffer->frameCount * sizeof(int16_t) * 6;
+    }
+    memcpy(pContext->in_clone,in,byte_counter);
+    int16_t *tmp = pContext->in_clone;
+    vxdata  *data = &pContext->gvxdata;
+    int32_t blockSize = DTS_VIRTUALX_FRAME_SIZE;
+    int32_t blockCount = inBuffer->frameCount / blockSize;
+    unsigned int nSamples = (unsigned int)inBuffer->frameCount;
     if (!data->enable || !pContext->gVXLibHandler) {
         for (size_t i = 0; i < inBuffer->frameCount; i++) {
             *out++ = *in++;
             *out++ = *in++;
         }
     } else {
-        int32_t blockSize = DTS_VIRTUALX_FRAME_SIZE;
-        int32_t blockCount = inBuffer->frameCount / blockSize;
-        int actual_ch = 0;
-        for (int i = 0; i < blockCount; i++) {
-            for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                if (pContext->ch_num == 0 /*for 2ch process*/) {
-                    pContext->ppDataIn[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
-                    pContext->ppDataIn[1][sampleCount] = (int32_t(*in++)) << 16;
-                    for (int i = 2; i < 12; i++) {
-                        pContext->ppDataIn[i][sampleCount] = 0;
-                    }
-                    for (int i = 0; i < 12; i++) {
-                        pContext->ppMappedInCh[i] = pContext->ppDataIn[i];
-                    }
-                    actual_ch = 2;
-               } else if (pContext->ch_num == 1 /*for 5.1 ch process*/) {
-                    if (pContext->gvxdata.counter == 0) {
+        if (pContext->bUseFade) {
+            Virtualx_Dofade(pContext, in, 1, nSamples);
+            Virtualx_Dofade(pContext, pContext->in_clone, 2, nSamples);
+            apply_volume(DbToAmpl(pContext->totaldb),pContext->in_clone,2,byte_counter);
+            /*
+            if (getprop_bool("media.audiohal.outdump")) {
+                FILE *fp1 = fopen("/data/audio_fadein.pcm", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)in, 1, byte_counter, fp1);
+                    fclose(fp1);
+                }
+            }
+            if (getprop_bool("media.audiohal.outdump")) {
+                FILE *fp1 = fopen("/data/audio_tmpp.pcm", "a+");
+                if (fp1) {
+                    int flen = fwrite((char *)pContext->in_clone, 1, byte_counter, fp1);
+                    fclose(fp1);
+                }
+            }*/
+            for (int i = 0; i < blockCount; i++) {
+                for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
+                    if (pContext->ch_num == 0 /*for 2ch process*/) {
+                        pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
+                        pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
+                        for (int i = 2; i < 12; i++) {
+                            pContext->ppMappedInCh[i][sampleCount] = 0;
+                        }
+                   } else if (pContext->ch_num == 1 /*for 5.1 ch process*/) {
                         for (int i = 0; i < 6; i++) {
-                            pContext->ppDataIn[i][sampleCount] = (int32_t(*in++)) << 16;
+                            pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
                         }
                         for (int i = 6; i < 12; i++) {
-                            pContext->ppDataIn[i][sampleCount] = 0;
+                            pContext->ppMappedInCh[i][sampleCount] = 0;
                         }
-                        //channel order C/L/R/Ls/Rs/LFE
-                        pContext->ppMappedInCh[0] = pContext->ppDataIn[2];
-                        pContext->ppMappedInCh[1] = pContext->ppDataIn[0];
-                        pContext->ppMappedInCh[2] = pContext->ppDataIn[1];
-                        pContext->ppMappedInCh[3] = pContext->ppDataIn[4];
-                        pContext->ppMappedInCh[4] = pContext->ppDataIn[5];
-                        pContext->ppMappedInCh[5] = pContext->ppDataIn[3];
-                        pContext->ppMappedInCh[6] = pContext->ppDataIn[6];
-                        pContext->ppMappedInCh[7] = pContext->ppDataIn[7];
-                        pContext->ppMappedInCh[8] = pContext->ppDataIn[8];
-                        pContext->ppMappedInCh[9] = pContext->ppDataIn[9];
-                        pContext->ppMappedInCh[10] = pContext->ppDataIn[10];
-                        pContext->ppMappedInCh[11] = pContext->ppDataIn[11];
-                        actual_ch = 6;
-                    } else {
-                        pContext->ppDataIn[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
-                        pContext->ppDataIn[1][sampleCount] = (int32_t(*in++)) << 16;
-                        for (int i = 2; i < 12; i++) {
-                            pContext->ppDataIn[i][sampleCount] = 0;
-                        }
-                        for (int i = 0; i < 12; i++) {
-                            pContext->ppMappedInCh[i] = pContext->ppDataIn[i];
-                        }
-                        actual_ch = 2;
+                    }
+                }
+                (*pContext->gVirtualxapi.Truvolume_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
+                (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
+                (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
+                /*
+                if (getprop_bool("media.audiohal.outdump")) {
+                    FILE *fp1 = fopen("/data/ppMappedOutCh.pcm", "a+");
+                    if (fp1) {
+                        int flen = fwrite((char *)pContext->ppMappedOutCh[0], 1, 256*4, fp1);
+                        fclose(fp1);
+                    }
+                }*/
+                for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
+                    if (pContext->ch_num == 0) {
+                        *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16) + (*tmp++);
+                        *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16) + (*tmp++);
+                    } else if (pContext->ch_num == 1) {
+                        *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16) + (*tmp++);
+                        *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16) + (*tmp);
+                        tmp += 5;
                     }
                 }
             }
-            if (pContext->gvxdata.counter == 0)
-                (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh,actual_ch);
-            else
-               (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
-            for (int sampleCount = 0;sampleCount < 256; sampleCount++) {
-                *out++  = pContext->ppMappedOutCh[0][sampleCount] >> 16;
-                *out++  = pContext->ppMappedOutCh[1][sampleCount] >> 16;
+        } else {
+            for (int i = 0; i < blockCount; i++) {
+                for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
+                    if (pContext->ch_num == 0 /*for 2ch process*/) {
+                        pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
+                        pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
+                        for (int i = 2; i < 12; i++) {
+                            pContext->ppMappedInCh[i][sampleCount] = 0;
+                        }
+                   } else if (pContext->ch_num == 1 /*for 5.1 ch process*/) {
+                        for (int i = 0; i < 6; i++) {
+                            pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
+                        }
+                        for (int i = 6; i < 12; i++) {
+                            pContext->ppMappedInCh[i][sampleCount] = 0;
+                        }
+                    }
+                }
+                (*pContext->gVirtualxapi.Truvolume_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
+                (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
+                (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
+                for (int sampleCount = 0;sampleCount < 256; sampleCount++) {
+                    *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16);
+                    *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16);
+                }
             }
         }
     }
+    return 0;
+}
+
+int dump(vxContext *pContext __unused)
+{
     return 0;
 }
 
@@ -3778,7 +4447,7 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         *(int *) pReplyData = Virtualx_configure(pContext,(effect_config_t *) pCmdData);
         break;
     case EFFECT_CMD_RESET:
-        //SRS_reset(pContext);
+        Virtualx_reset(pContext);
         break;
     case EFFECT_CMD_ENABLE:
         if (pReplyData == NULL || replySize == NULL || *replySize != sizeof(int))
@@ -3805,7 +4474,8 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
             *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 8 * sizeof(float)) &&
             *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 10 * sizeof(float)) &&
             *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 6 * sizeof(float)) &&
-            *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 3 * sizeof(float))))
+            *replySize < (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 3 * sizeof(float)) &&
+            *replySize < (sizeof(effect_param_t) + sizeof(uint32_t) + (pContext->gvxdata.aeq_bandnum) * sizeof(float))))
             return -EINVAL;
         p = (effect_param_t *)pCmdData;
         memcpy(pReplyData, pCmdData, sizeof(effect_param_t) + p->psize);
@@ -3822,14 +4492,16 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
             cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 8 * sizeof(float)) &&
             cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 10 * sizeof(float)) &&
             cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 6 * sizeof(float)) &&
-            cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 3 * sizeof(float))) ||
+            cmdSize != (int)(sizeof(effect_param_t) + sizeof(uint32_t) + 3 * sizeof(float)) &&
+            cmdSize != (sizeof(effect_param_t) + sizeof(uint32_t) + (pContext->gvxdata.aeq_bandnum) * sizeof(float))) ||
             pReplyData == NULL || replySize == NULL || *replySize != sizeof(int32_t)) {
                 ALOGE("%s: EFFECT_CMD_SET_PARAM cmd size error!", __FUNCTION__);
                 return -EINVAL;
         }
         p = (effect_param_t *)pCmdData;
         if (p->psize != sizeof(uint32_t) || (p->vsize != sizeof(uint32_t) && p->vsize != 8 * sizeof(float) &&
-            p->vsize != 10 * sizeof(float) && p->vsize != 6 * sizeof(float) && p->vsize != 3 * sizeof(float))) {
+            p->vsize != 10 * sizeof(float) && p->vsize != 6 * sizeof(float) && p->vsize != 3 * sizeof(float) &&
+            p->vsize != (pContext->gvxdata.aeq_bandnum) * sizeof(float))) {
             ALOGE("%s: EFFECT_CMD_SET_PARAM value size error!", __FUNCTION__);
             *(int32_t *)pReplyData = -EINVAL;
             break;
@@ -3842,6 +4514,9 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
     case EFFECT_CMD_SET_DEVICE:
     case EFFECT_CMD_SET_VOLUME:
     case EFFECT_CMD_SET_AUDIO_MODE:
+        break;
+    case EFFECT_CMD_DUMP:
+        dump(pContext);
         break;
     default:
         ALOGE("%s: invalid command %d", __FUNCTION__, cmdCode);
@@ -3869,8 +4544,6 @@ int Virtualx_getDescriptor(effect_handle_t self, effect_descriptor_t *pDescripto
 
 int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, int32_t ioId __unused, effect_handle_t *pHandle)
 {
-    //int ret;
-
     if (pHandle == NULL || uuid == NULL)
         return -EINVAL;
 
@@ -3883,12 +4556,14 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
         return -EINVAL;
     }
     memset(pContext, 0, sizeof(vxContext));
-    memcpy((void *) & pContext->gvxdata.DC_usr_cfg[0], (void *) & default_DC_cfg, sizeof(pContext->gvxdata.DC_usr_cfg[0]));
-    memcpy((void *) & pContext->gvxdata.TS_usr_cfg[0], (void *) & default_TS_cfg, sizeof(pContext->gvxdata.TS_usr_cfg[0]));
+    memcpy((void *) & pContext->gvxdata.DC_usr_cfg[0], (void *) &default_DC_cfg, sizeof(pContext->gvxdata.DC_usr_cfg[0]));
+    memcpy((void *) & pContext->gvxdata.TS_usr_cfg[0], (void *) &default_TS_cfg, sizeof(pContext->gvxdata.TS_usr_cfg[0]));
     memcpy((void *) & pContext->gvxdata.vxcfg,(void *) & default_Virtualxcfg,sizeof(pContext->gvxdata.vxcfg));
+
     if (Virtualx_load_ini_file(pContext) < 0) {
         ALOGE("%s: Load INI File faied, use default param", __FUNCTION__);
         pContext->gvxdata.enable = 1;
+        pContext->gvxdata.latency = 2648;
     }
 
     if (Virtualx_load_lib(pContext) < 0) {
@@ -3903,6 +4578,12 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
 
     pContext->state = VIRTUALX_STATE_INITIALIZED;
 
+    pContext->bUseFade = 1;
+    AudioFadeInit((AudioFade_t *) & (pContext->gAudFade), fadeLinear, 10, 0);
+    AudioFadeSetState((AudioFade_t *) & (pContext->gAudFade), AUD_FADE_IDLE);
+    AudioFadeInit((AudioFade_t *) & (pContext->gAudFade1), fadeLinear, 10, 0);
+    AudioFadeSetState((AudioFade_t *) & (pContext->gAudFade1), AUD_FADE_IDLE);
+
     ALOGD("%s: %p", __FUNCTION__, pContext);
 
     return 0;
@@ -3913,16 +4594,11 @@ int VirtualxLib_Release(effect_handle_t handle)
     vxContext * pContext = (vxContext *)handle;
     if (pContext == NULL)
         return -EINVAL;
-
-    if (pContext->gvxdata.counter != 1) {
-        ALOGE("miss mbhl process");
-        //return ret;    //how to process here
-    }
     Virtualx_release(pContext);
     unload_Virtualx_lib(pContext);
     property_set("media.libplayer.dtsMulChPcm","false");
     pContext->state = VIRTUALX_STATE_UNINITIALIZED;
-
+    free(pContext->in_clone);
     delete pContext;
     ALOGD("VirtualxLib_Release");
     return 0;

@@ -5169,6 +5169,11 @@ Error:
         return status;
     }
 
+    int dump(DAPContext *pContext __unused)
+    {
+        return 0;
+    }
+
     int DAP_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
                     void *pCmdData, uint32_t *replySize, void *pReplyData)
     {
@@ -5261,6 +5266,9 @@ Error:
         case EFFECT_CMD_SET_DEVICE:
         case EFFECT_CMD_SET_VOLUME:
         case EFFECT_CMD_SET_AUDIO_MODE:
+            break;
+        case EFFECT_CMD_DUMP:
+            dump(pContext);
             break;
         default:
             ALOGE("%s: invalid command %d", __FUNCTION__, cmdCode);

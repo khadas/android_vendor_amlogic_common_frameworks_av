@@ -16,12 +16,14 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH) \
+    vendor/amlogic/frameworks/av/libaudioeffect/Utility \
     hardware/amlogic/audio/utils/ini/include \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
     system/media/audio/include \
 
 LOCAL_SRC_FILES := Virtualx.cpp
+LOCAL_SRC_FILES += ../Utility/AudioFade.c
 
 LOCAL_CFLAGS += -O2
 

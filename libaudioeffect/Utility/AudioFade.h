@@ -43,6 +43,7 @@ typedef enum {
     AUD_FADE_MUTE      = 3,
     AUD_FADE_IN_START  = 4,
     AUD_FADE_IN        = 5,
+    AUD_FADE_HOLD      = 6,
 } fade_state_e;
 
 
@@ -76,6 +77,7 @@ int AudioFadeInit(AudioFade_t *pAudFade, fadeMethod fade_method, int fadeMs, int
 int AudioFadeSetState(AudioFade_t *pAudFade, fade_state_e fadeState);
 
 int AudioFadeBuf(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples);
+int AudioFadeBufferdelay(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples, int starsample);
 
 int AudioFadeSetFormat(AudioFade_t *pAudFade,
                        uint32_t        samplingRate,    // sampling rate
@@ -84,6 +86,7 @@ int AudioFadeSetFormat(AudioFade_t *pAudFade,
                       );
 
 void mutePCMBuf(AudioFade_t *pAudFade, void *rawBuf, unsigned int nSamples);
+
 
 #endif //__AUDIOFADE_H__
 
