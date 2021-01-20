@@ -1,9 +1,31 @@
 // AV  media utils extension
 // ########################################################
 
+bootstrap_go_package {
+    name: "soong-mediavendorext",
+    pkgPath: "android/soong/vendor/amlogic/common/frameworks/av/libmediavendorext",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+    ],
+    srcs: [
+        "libmediavendorext.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+mediaext_defaults {
+    name : "libmediavendorext-default-system_ext",
+}
+
 cc_library_shared  {
     name: "libmediavendorext",
 
+    defaults: ["libmediavendorext-default-system_ext"],
     srcs: [
          "MediaVendorExt.cpp",
     ],
