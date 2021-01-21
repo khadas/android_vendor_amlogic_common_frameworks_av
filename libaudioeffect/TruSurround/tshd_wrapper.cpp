@@ -274,7 +274,7 @@ int SRS_get_ini_file(char *ini_name, int size)
     char model_name[50] = {0};
     IniParser* pIniParser = NULL;
     const char *ini_value = NULL;
-    const char *filename = "/odm/model/model_sum.ini";
+    const char *filename = "/mnt/vendor/odm_ext/model/model_sum.ini";
 
     SRS_get_model_name(model_name, sizeof(model_name));
     pIniParser = new IniParser();

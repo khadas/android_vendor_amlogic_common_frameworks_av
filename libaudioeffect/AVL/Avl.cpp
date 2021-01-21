@@ -42,8 +42,8 @@ extern "C"{
 
 #include "aml_agc.h"
 
-#define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/odm/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
+#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
+#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
 // effect_handle_t interface implementation for Avl effect
 extern const struct effect_interface_s AvlInterface;

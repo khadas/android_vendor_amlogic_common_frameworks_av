@@ -53,8 +53,8 @@ LVCS_MemTab_t           CS_MemTab;          /* Memory table */
 LVCS_Capabilities_t     CS_Capabilities;    /* Initial capabilities */
 static pthread_mutex_t audio_vir_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define MODEL_SUM_DEFAULT_PATH "/odm/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/odm/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
+#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
+#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
 #define VIRTUALSURROUND_FLOAT_CONVERT_MEM_SIZE      4096 * sizeof(float) * 2 // 2 ch, float, 4096 frame
 
