@@ -75,3 +75,60 @@ cc_library_shared  {
         "-Werror",
     ],
 }
+
+
+cc_library_static {
+    name: "libmediavendor_default",
+    vendor_available: true,
+    srcs: [
+         "MediaVendorExt.cpp",
+    ],
+
+    shared_libs: [
+         "libhidlbase",
+         "liblog",
+         "libui",
+         "libcutils",
+         "libutils",
+         "libnativewindow",
+         "libcrypto",
+         "android.hardware.media.omx@1.0",
+         "libhidlbase",
+         "libhidlmemory",
+         "android.hidl.allocator@1.0",
+         "android.hidl.memory@1.0",
+         "libstagefright_foundation",
+         "libstagefright_omx",
+    ],
+
+    header_libs: [
+        "media_plugin_headers",
+        "libstagefright_headers",
+    ],
+
+    export_header_lib_headers: [
+        "media_plugin_headers",
+        "libstagefright_headers",
+    ],
+
+    export_include_dirs: [
+         "include",
+    ],
+
+    include_dirs: [
+        "frameworks/av/media/ndk/include",
+        "frameworks/av/media/libaudioclient/include",
+        "frameworks/native/include",
+        "hardware/amlogic/media/ammediaext",
+        "frameworks/av/media/libmedia/include",
+        "frameworks/av/media/libstagefright/xmlparser/include",
+        "frameworks/av/media/ndk/include",
+        "system/libhidl/transport/token/1.0/utils/include",
+        "frameworks/av/include",
+    ],
+
+    cflags: [
+        "-Wno-multichar",
+        "-Werror",
+    ],
+}
