@@ -14,16 +14,12 @@ LOCAL_SHARED_LIBRARIES := \
     libamaudioutils
 
 LOCAL_C_INCLUDES := \
-    $(LOCAL_PATH) \
+    $(LOCAL_PATH)/include \
     hardware/amlogic/audio/utils/ini/include \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
     system/media/audio/include \
     system/media/audio_utils/include \
-    frameworks/av/media/libeffects/lvm/lib/StereoWidening/lib \
-    frameworks/av/media/libeffects/lvm/lib/StereoWidening/src \
-    frameworks/av/media/libeffects/lvm/lib/Common/lib \
-    frameworks/av/media/libeffects/lvm/lib/Common/src \
 
 LOCAL_SRC_FILES += Virtualsurround.cpp
 
@@ -35,10 +31,6 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_LDLIBS   +=  -llog
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
-endif
-
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30 && echo OK), OK)
-LOCAL_CFLAGS += -DUSE_LVCS_FLOAT_PROCESS
 endif
 
 LOCAL_MODULE_RELATIVE_PATH := soundfx

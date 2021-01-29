@@ -56,8 +56,6 @@ static pthread_mutex_t audio_vir_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
 #define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
-#define VIRTUALSURROUND_FLOAT_CONVERT_MEM_SIZE      4096 * sizeof(float) * 2 // 2 ch, float, 4096 frame
-
 // effect_handle_t interface implementation for Virtualsurround effect
 extern const struct effect_interface_s VirtualsurroundInterface;
 
@@ -101,8 +99,6 @@ typedef struct VirtualsurroundContext_s {
     effect_config_t                 config;
     Virtualsurround_state_e         state;
     Virtualsurrounddata             gVirtualsurrounddata;
-    float                           *pFloatInBufferConvert;
-    float                           *pFloatOutBufferConvert;
 } VirtualsurroundContext;
 
 const char *VirtualsurroundStatusstr[] = {"Disable", "Enable"};
@@ -195,11 +191,11 @@ int Virtualsurround_init(VirtualsurroundContext *pContext) {
         if (CS_MemTab.Region[i].Size != 0) {
             CS_MemTab.Region[i].pBaseAddress = malloc(CS_MemTab.Region[i].Size);
             if (CS_MemTab.Region[i].pBaseAddress == LVM_NULL) {
-                ALOGV("\tLVM_ERROR :LvmBundle_init CreateInstance Failed to allocate %"
+                ALOGV("\tLVM_ERROR :LvmBundle_init CreateInstance Failed to allocate %d"
                     " bytes for region %u\n", CS_MemTab.Region[i].Size, i );
                 return LVCS_NULLADDRESS;
             } else {
-                ALOGV("\tLvmBundle_init CreateInstance allocated %"
+                ALOGV("\tLvmBundle_init CreateInstance allocated %d"
                     " bytes for region %u at %p\n",
                     CS_MemTab.Region[i].Size, i, CS_MemTab.Region[i].pBaseAddress);
             }
@@ -218,13 +214,7 @@ int Virtualsurround_init(VirtualsurroundContext *pContext) {
     CS_Params->SampleRate  = LVM_FS_48000;
     CS_Params->ReverbLevel = 512;
     CS_Params->EffectLevel = 16350; /* 0~32700 */
-#ifdef USE_LVCS_FLOAT_PROCESS
-    pContext->pFloatInBufferConvert = (float *)malloc(VIRTUALSURROUND_FLOAT_CONVERT_MEM_SIZE);
-    pContext->pFloatOutBufferConvert = (float *)malloc(VIRTUALSURROUND_FLOAT_CONVERT_MEM_SIZE);
-#else
-    pContext->pFloatInBufferConvert = NULL;
-    pContext->pFloatOutBufferConvert = NULL;
-#endif
+
     pthread_mutex_unlock(&audio_vir_mutex);
 
     pContext->config.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
@@ -352,14 +342,6 @@ int Virtualsurround_release(VirtualsurroundContext *pContext) {
         }
     }
     hCSInstance = LVM_NULL;
-    if (pContext->pFloatInBufferConvert != NULL) {
-        free(pContext->pFloatInBufferConvert);
-        pContext->pFloatInBufferConvert = NULL;
-    }
-    if (pContext->pFloatOutBufferConvert != NULL) {
-        free(pContext->pFloatOutBufferConvert);
-        pContext->pFloatOutBufferConvert = NULL;
-    }
 
     pthread_mutex_unlock(&audio_vir_mutex);
     return 0;
@@ -395,24 +377,10 @@ int Virtualsurround_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
     } else {
         if (hCSInstance == LVM_NULL)
             return LVCS_NULLADDRESS;
-
-#ifdef USE_LVCS_FLOAT_PROCESS
-        if (inBuffer->frameCount * 2 * sizeof(int16_t) > VIRTUALSURROUND_FLOAT_CONVERT_MEM_SIZE) {
-            ALOGE("%s: inBuffer size:%d too large, greater than maximum memory:%d.", __FUNCTION__,
-                inBuffer->frameCount * 2 * sizeof(int16_t), VIRTUALSURROUND_FLOAT_CONVERT_MEM_SIZE);
-            return -ENODATA;
-        }
-        memcpy_to_float_from_i16(pContext->pFloatInBufferConvert, in, inBuffer->frameCount * 2);
         pthread_mutex_lock(&audio_vir_mutex);
-        LVCS_Process(hCSInstance, pContext->pFloatInBufferConvert, pContext->pFloatOutBufferConvert,inBuffer->frameCount);
-        pthread_mutex_unlock(&audio_vir_mutex);
-        memcpy_to_i16_from_float(out, pContext->pFloatOutBufferConvert, inBuffer->frameCount * 2);
-#else
-        pthread_mutex_lock(&audio_vir_mutex);
-        LVCS_Process(hCSInstance, in, out,inBuffer->frameCount);
+        LVCS_Process(hCSInstance, in, out, inBuffer->frameCount);
         pthread_mutex_unlock(&audio_vir_mutex);
 
-#endif
     }
     return 0;
 }
