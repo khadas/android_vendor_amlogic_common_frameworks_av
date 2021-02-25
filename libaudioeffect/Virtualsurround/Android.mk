@@ -35,4 +35,4 @@ endif
 
 LOCAL_MODULE_RELATIVE_PATH := soundfx
 
-# include $(BUILD_SHARED_LIBRARY)
+include $(BUILD_SHARED_LIBRARY)
