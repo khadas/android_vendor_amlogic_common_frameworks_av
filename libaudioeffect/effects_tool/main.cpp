@@ -32,6 +32,7 @@
 #include <media/AudioEffect.h>
 #include <media/AudioSystem.h>
 #include <media/AudioParameter.h>
+
 #include "Virtualx.h"
 
 #ifdef LOG
@@ -153,6 +154,16 @@ const char *SRSDialogClarityModestr[] = {"OFF", "LOW", "HIGH"};
 const char *SRSSurroundModestr[] = {"ON", "OFF"};
 
 //-------------Virtualx parameter--------------------------
+typedef struct Virtualx_param_s {
+    effect_param_t param;
+    uint32_t command;
+    union {
+        int32_t v;
+        float f;
+        float params[VX_MAX_PARAM_SIZE];
+    };
+} Virtualx_param_t;
+
 Virtualx_param_t gVirtualxParam[] = {
     {{0, 4, 4}, DTS_PARAM_MBHL_ENABLE_I32, {1}},
     {{0, 4, 4}, DTS_PARAM_MBHL_BYPASS_GAIN_I32, {1}},
@@ -2434,8 +2445,10 @@ int main(int argc,char **argv)
                 goto Error;
             }
             //------------set Balance parameters---------------------------------------
-            if (Balance_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0)
+            if (Balance_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0) {
                 LOG("Balance Test failed\n");
+                goto Error;
+            }
             break;
         case EFFECT_SRS:
             ret = create_audio_effect(&gAudioEffect[EFFECT_SRS], name16[EFFECT_SRS], EFFECT_SRS);
@@ -2444,8 +2457,10 @@ int main(int argc,char **argv)
                 goto Error;
             }
             //------------set TruSurround parameters-----------------------------------
-            if (SRS_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue, gParamScale) < 0)
+            if (SRS_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue, gParamScale) < 0) {
                 LOG("TruSurround Test failed\n");
+                goto Error;
+            }
             break;
         case EFFECT_TREBLEBASS:
             ret = create_audio_effect(&gAudioEffect[EFFECT_TREBLEBASS], name16[EFFECT_TREBLEBASS], EFFECT_TREBLEBASS);
@@ -2454,8 +2469,10 @@ int main(int argc,char **argv)
                 goto Error;
             }
             //------------set TrebleBass parameters------------------------------------
-            if (TrebleBass_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0)
+            if (TrebleBass_effect_func(gAudioEffect[gEffectIndex], gParamIndex, gParamValue) < 0) {
                 LOG("TrebleBass Test failed\n");
+                goto Error;
+            }
             break;
         case EFFECT_HPEQ:
             ret = create_audio_effect(&gAudioEffect[EFFECT_HPEQ], name16[EFFECT_HPEQ], EFFECT_HPEQ);

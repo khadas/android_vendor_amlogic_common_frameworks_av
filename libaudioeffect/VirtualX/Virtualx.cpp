@@ -19,32 +19,34 @@
  */
 
 #define LOG_TAG "Virtualx_Effect"
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 
-#include <cutils/log.h>
-#include <utils/Log.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <dlfcn.h>
-#include <hardware/audio_effect.h>
+#include <pthread.h>
 #include <stdio.h>
-#include <cutils/properties.h>
 #include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <utils/Log.h>
+#include <cutils/properties.h>
+#include <hardware/audio_effect.h>
+
 #include "IniParser.h"
 #include "Virtualx.h"
-#include <pthread.h>
 
 extern "C" {
 
 #include "../Utility/AudioFade.h"
+#include "aml_volume_utils.h"
 
 #define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
+
 #define DTS_VIRTUALX_FRAME_SIZE 256
 #define FXP32(val, x) (int32_t)(val * ((int64_t)1L << (32 - x)))
 #define FXP16(val, x) (int32_t)(val * (1L << (16 - x)))
@@ -475,7 +477,7 @@ const char *VXStatusstr[] = {"Disable", "Enable"};
 const char *VXDialogClarityModestr[DC_MODE_MUM] = {"OFF", "LOW", "HIGH"};
 const char *VXSurroundModestr[TS_MODE_MUM] = {"ON", "OFF"};
 
-int Virtualx_get_model_name(char *model_name, int size)
+static int Virtualx_get_model_name(char *model_name, int size)
 {
     int ret = -1;
     char node[PROPERTY_VALUE_MAX];
@@ -483,38 +485,16 @@ int Virtualx_get_model_name(char *model_name, int size)
     ret = property_get("vendor.tv.model_name", node, NULL);
 
     if (ret < 0)
-        snprintf(model_name, size, "DEFAULT");
+        snprintf(model_name, size, "FHD");
     else
         snprintf(model_name, size, "%s", node);
+
     ALOGD("%s: Model Name -> %s", __FUNCTION__, model_name);
+
     return ret;
 }
 
-static int getprop_bool(const char *path)
-{
-    char buf[PROPERTY_VALUE_MAX];
-    int ret = -1;
-
-    ret = property_get(path, buf, NULL);
-    if (ret > 0) {
-        if (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-short clip(int x) {
-    if (x < -32768) {
-        return -32768;
-    } else if (x > 32767) {
-        return 32767;
-    } else {
-        return x;
-    }
-}
-
-int Virtualx_get_ini_file(char *ini_name, int size)
+static int Virtualx_get_ini_file(char *ini_name, int size)
 {
     int result = -1;
     char model_name[50] = {0};
@@ -529,11 +509,12 @@ int Virtualx_get_ini_file(char *ini_name, int size)
         goto exit;
     }
 
-    ini_value = pIniParser->GetString(model_name, "AMLOGIC_AUDIO_EFFECT_INI_PATH", AUDIO_EFFECT_DEFAULT_PATH);
+    ini_value = pIniParser->GetString(model_name, "AMLOGIC_AUDIO_EFFECT_INI_PATH", "null");
     if (ini_value == NULL || access(ini_value, F_OK) == -1) {
         ALOGD("%s: INI File is not exist", __FUNCTION__);
         goto exit;
     }
+
     ALOGD("%s: INI File -> %s", __FUNCTION__, ini_value);
     strncpy(ini_name, ini_value, size);
 
@@ -544,7 +525,7 @@ exit:
     return result;
 }
 
-int Virtualx_parse_dialogclarity(DC_cfg *DC_parm, const char *buffer)
+static int Virtualx_parse_dialogclarity(DC_cfg *DC_parm, const char *buffer)
 {
     char *Rch = (char *)buffer;
 
@@ -564,7 +545,7 @@ error:
     return -1;
 }
 
-int Virtualx_parse_surround(TS_cfg *TS_param, const char *buffer)
+static int Virtualx_parse_surround(TS_cfg *TS_param, const char *buffer)
 {
     char *Rch = (char *)buffer;
     Rch = strtok(Rch, ",");
@@ -688,7 +669,7 @@ error:
     return -1;
 }
 
-int AEQ_parse_fc_config(vxContext *pContext, int bandnum, const char *buffer)
+static int AEQ_parse_fc_config(vxContext *pContext, int bandnum, const char *buffer)
 {
     int i;
     char *Rch = (char *)buffer;
@@ -709,7 +690,7 @@ int AEQ_parse_fc_config(vxContext *pContext, int bandnum, const char *buffer)
     return 0;
 }
 
-int Virtualx_load_ini_file(vxContext *pContext)
+static int Virtualx_load_ini_file(vxContext *pContext)
 {
     int result = -1;
     char *Rch = NULL;
@@ -731,6 +712,7 @@ int Virtualx_load_ini_file(vxContext *pContext)
     data->enable = atoi(ini_value);
     if (data->enable == 0) {
         property_set("media.libplayer.dtsMulChPcm","false");
+        pContext->ch_num = 2;
     }
      //virtuallibx parse
     ini_value =  pIniParser->GetString("Virtualx", "virtuallibx", "NULL");
@@ -1055,7 +1037,8 @@ error:
     pIniParser = NULL;
     return result;
 }
-int Virtualx_load_lib(vxContext *pContext)
+
+static int Virtualx_load_lib(vxContext *pContext)
 {
     pContext->gVXLibHandler = dlopen(LIBVX_PATH_A, RTLD_NOW);
     if (!pContext->gVXLibHandler) {
@@ -1742,62 +1725,62 @@ int Virtualx_load_lib(vxContext *pContext)
     pContext->gVirtualxapi.settbhd_FilterDesign = (int (*)(int32_t,float,float,float))dlsym(pContext->gVXLibHandler, "settbhd_FilterDesign");
     if (!pContext->gVirtualxapi.settbhd_FilterDesign) {
         ALOGE("%s: find func settbhd_FilterDesign() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.setmbhl_FilterDesign = (int (*)(float,float))dlsym(pContext->gVXLibHandler, "setmbhl_FilterDesign");
     if (!pContext->gVirtualxapi.setmbhl_FilterDesign) {
         ALOGE("%s: find func setmbhl_FilterDesign() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.seteq_enable = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_enable");
     if (!pContext->gVirtualxapi.seteq_enable) {
         ALOGE("%s: find func seteq_enable() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.geteq_enable = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_enable");
     if (!pContext->gVirtualxapi.geteq_enable) {
         ALOGE("%s: find func geteq_enable() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.seteq_discard = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_discard");
     if (!pContext->gVirtualxapi.seteq_discard) {
         ALOGE("%s: find func seteq_discard() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.seteq_inputG = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_inputG");
     if (!pContext->gVirtualxapi.seteq_inputG) {
         ALOGE("%s: find func seteq_inputG() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.geteq_inputG = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_inputG");
     if (!pContext->gVirtualxapi.geteq_inputG) {
         ALOGE("%s: find func geteq_inputG() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.seteq_outputG = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_outputG");
     if (!pContext->gVirtualxapi.seteq_outputG) {
         ALOGE("%s: find func seteq_outputG() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.geteq_outputG = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_outputG");
     if (!pContext->gVirtualxapi.geteq_outputG) {
         ALOGE("%s: find func geteq_outputG() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.seteq_bypassG = (int (*)(int32_t))dlsym(pContext->gVXLibHandler, "seteq_bypassG");
     if (!pContext->gVirtualxapi.seteq_bypassG) {
         ALOGE("%s: find func seteq_bypassG() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.geteq_bypassG = (int (*)(int32_t*))dlsym(pContext->gVXLibHandler, "geteq_bypassG");
     if (!pContext->gVirtualxapi.geteq_bypassG) {
         ALOGE("%s: find func geteq_bypassG() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     pContext->gVirtualxapi.seteq_band = (int (*)(int32_t,void*))dlsym(pContext->gVXLibHandler, "seteq_band");
     if (!pContext->gVirtualxapi.seteq_band) {
         ALOGE("%s: find func seteq_band() failed\n", __FUNCTION__);
-        return -1;
+        goto Error;
     }
     ALOGD("%s: sucessful", __FUNCTION__);
     return 0;
@@ -1808,7 +1791,7 @@ Error:
     return -EINVAL;
 }
 
-int unload_Virtualx_lib(vxContext *pContext)
+static int unload_Virtualx_lib(vxContext *pContext)
 {
     memset(&pContext->gVirtualxapi, 0, sizeof(pContext->gVirtualxapi));
     if (pContext->gVXLibHandler) {
@@ -1818,7 +1801,7 @@ int unload_Virtualx_lib(vxContext *pContext)
     return 0;
 }
 
-int Virtualx_init(vxContext *pContext)
+static int Virtualx_init(vxContext *pContext)
 {
     vxdata *data = &pContext->gvxdata;
     pContext->config.inputCfg.accessMode = EFFECT_BUFFER_ACCESS_READ;
@@ -1839,7 +1822,7 @@ int Virtualx_init(vxContext *pContext)
     pContext->config.outputCfg.mask = EFFECT_CONFIG_ALL;
 
     //init counter and value
-    pContext->ch_num = 0;
+    pContext->ch_num = 2;
     pContext->lowcrossfreq = 300;
     pContext->midcrossfreq = 5000;
     pContext->spksize = 80;
@@ -1931,7 +1914,7 @@ int Virtualx_init(vxContext *pContext)
     return 0;
 }
 
-int Virtualx_reset(vxContext *pContext)
+static int Virtualx_reset(vxContext *pContext)
 {
     if (pContext->gVXLibHandler)
         (*pContext->gVirtualxapi.VX_reset)();
@@ -1944,7 +1927,7 @@ int Virtualx_reset(vxContext *pContext)
     return 0;
 }
 
-int Virtualx_configure(vxContext *pContext, effect_config_t *pConfig)
+static int Virtualx_configure(vxContext *pContext, effect_config_t *pConfig)
 {
     if (pConfig->inputCfg.samplingRate != pConfig->outputCfg.samplingRate)
         return -EINVAL;
@@ -1974,17 +1957,7 @@ int Virtualx_configure(vxContext *pContext, effect_config_t *pConfig)
     return 0;
 }
 
-static inline float AmplToDb(float amplification)
-{
-    return 20 * log10(amplification);
-}
-
-static inline float DbToAmpl(float decibels)
-{
-    return exp( decibels * 0.115129f); // exp( dB * ln(10) / 20 )
-}
-
-int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
+static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
 {
     int32_t param = *(int32_t *)pParam;
     int32_t value;
@@ -2002,8 +1975,10 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
         data->enable = value;
         if (data->enable) {
             property_set("media.libplayer.dtsMulChPcm","true");
+            pContext->ch_num = 6;
         } else {
             property_set("media.libplayer.dtsMulChPcm","false");
+            pContext->ch_num = 2;
         }
         ALOGD("%s: Set status -> %s", __FUNCTION__, VXStatusstr[value]);
         break;
@@ -2449,13 +2424,15 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
         value = *(int32_t *)pValue;
         if (value > 1)
             value = 1;
-        pContext->ch_num = value; // here to set input ch num
-        if (pContext->ch_num == 0) {
+
+        if (value == 0) {
             AudioFadeSetFormat(&pContext->gAudFade, 48000, 2, AUDIO_FORMAT_PCM_16_BIT);
             AudioFadeSetFormat(&pContext->gAudFade1, 48000, 2, AUDIO_FORMAT_PCM_16_BIT);
+            pContext->ch_num = 2;
         } else {
             AudioFadeSetFormat(&pContext->gAudFade, 48000, 6, AUDIO_FORMAT_PCM_16_BIT);
             AudioFadeSetFormat(&pContext->gAudFade1, 48000, 6, AUDIO_FORMAT_PCM_16_BIT);
+            pContext->ch_num = 6;
         }
         (*pContext->gVirtualxapi.setvxlib1_inmode)(value);
         ALOGD("%s set vxlib1 inmode %d",__FUNCTION__, value);
@@ -2778,16 +2755,21 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
             return 0;
         }
         value = *(int32_t *)pValue;
-        if (value == 6) {
-            (*pContext->gVirtualxapi.gettsx_discard)(&tsx_discard);
-            if (tsx_discard) {
-                property_set("media.libplayer.dtsMulChPcm","false");
-            } else {
-                property_set("media.libplayer.dtsMulChPcm","true");
-            }
+        (*pContext->gVirtualxapi.gettsx_discard)(&tsx_discard);
+        /* Set input channel of Truvoulme & VXlib and update out to dts decoder */
+        /* two case force audio output stereo: 1) all VX bypass 2) TSX discard */
+        if (value == 6 && data->enable && !tsx_discard) {
+            property_set("media.libplayer.dtsMulChPcm","true");
+            (*pContext->gVirtualxapi.setlc_inmode)(4);
+            (*pContext->gVirtualxapi.setvxlib1_inmode)(1);
+            pContext->ch_num = 6;
         } else {
             property_set("media.libplayer.dtsMulChPcm","false");
+            (*pContext->gVirtualxapi.setlc_inmode)(0);
+            (*pContext->gVirtualxapi.setvxlib1_inmode)(0);
+            pContext->ch_num = 2;
         }
+        return pContext->ch_num;
         break;
     case AUDIO_DTS_PARAM_TYPE_NONE:
         if (!pContext->gVXLibHandler) {
@@ -3225,7 +3207,7 @@ int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue)
     return 0;
 }
 
-int Virtualx_getParameter(vxContext *pContext, void *pParam, size_t *pValueSize,void *pValue)
+static int Virtualx_getParameter(vxContext *pContext, void *pParam, size_t *pValueSize,void *pValue)
 {
     uint32_t param = *(uint32_t *)pParam;
     int32_t value;
@@ -4090,7 +4072,7 @@ int Virtualx_getParameter(vxContext *pContext, void *pParam, size_t *pValueSize,
     return 0;
 }
 
-int Virtualx_release(vxContext *pContext)
+static int Virtualx_release(vxContext *pContext)
 {
     if (pContext->gVXLibHandler) {
        (*pContext->gVirtualxapi.VX_release)();
@@ -4098,7 +4080,7 @@ int Virtualx_release(vxContext *pContext)
     return 0;
 }
 
-int Virtualx_Dofade(vxContext *pContext, void * rawbuf, int fadenum, unsigned int nSamples)
+static int Virtualx_Dofade(vxContext *pContext, void * rawbuf, int fadenum, unsigned int nSamples)
 {
     AudioFade_t *pAudFade = (AudioFade_t *) & (pContext->gAudFade);
     AudioFade_t *pAudFade1 = (AudioFade_t *) & (pContext->gAudFade1);
@@ -4196,7 +4178,7 @@ int Virtualx_Dofade(vxContext *pContext, void * rawbuf, int fadenum, unsigned in
         switch (pAudFade1->mFadeState) {
         case AUD_FADE_MUTE: {
             pContext->samplecounter += nSamples;
-            if (pContext->samplecounter >= (data->latency - (data->latency % nSamples))) {
+            if (pContext->samplecounter >= (int)(data->latency - (data->latency % nSamples))) {
                 pAudFade1->mFadeState = AUD_FADE_IN_START;
             }
             mutePCMBuf(pAudFade1, rawbuf, nSamples);
@@ -4258,47 +4240,10 @@ int Virtualx_Dofade(vxContext *pContext, void * rawbuf, int fadenum, unsigned in
     }
     return 0;
 }
-static inline int16_t clamp16(int32_t sample)
-{
-    if ((sample >> 15) ^ (sample >> 31)) {
-        sample = 0x7FFF ^ (sample >> 31);
-    }
-    return sample;
-}
-
-static inline int32_t clamp32(int64_t sample)
-{
-    if ((sample >> 31) ^ (sample >> 63)) {
-        sample = 0x7FFFFFFF ^ (sample >> 63);
-    }
-    return sample;
-}
-
-void apply_volume(float volume, void *buf, int sample_size, int bytes)
-{
-    int16_t *input16 = (int16_t *)buf;
-    int32_t *input32 = (int32_t *)buf;
-    unsigned int i = 0;
-
-    if (sample_size == 2) {
-        for (i = 0; i < bytes / sizeof(int16_t); i++) {
-            int32_t samp = (int32_t)(input16[i]);
-            input16[i] = clamp16((int32_t)(volume * samp));
-        }
-    } else if (sample_size == 4) {
-        for (i = 0; i < bytes / sizeof(int32_t); i++) {
-            int64_t samp = (int64_t)(input32[i]);
-            input32[i] = clamp32((int64_t)(volume * samp));
-        }
-    } else {
-        ALOGE("%s, unsupported audio format: %d!\n", __FUNCTION__, sample_size);
-    }
-    return;
-}
 
 //-------------------Effect Control Interface Implementation--------------------------
 
-int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t *outBuffer)
+static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t *outBuffer)
 {
     vxContext *pContext = (vxContext *)self;
     if (pContext == NULL)
@@ -4316,7 +4261,7 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
     int16_t  *in   = (int16_t *)inBuffer->raw;
     int16_t  *out  = (int16_t *)outBuffer->raw;
     int32_t  byte_counter;
-    if (pContext->ch_num == 0) {
+    if (pContext->ch_num == 2) {
         byte_counter = inBuffer->frameCount * sizeof(int16_t) * 2;
     } else {
         byte_counter = inBuffer->frameCount * sizeof(int16_t) * 6;
@@ -4336,7 +4281,7 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
         if (pContext->bUseFade) {
             Virtualx_Dofade(pContext, in, 1, nSamples);
             Virtualx_Dofade(pContext, pContext->in_clone, 2, nSamples);
-            apply_volume(DbToAmpl(pContext->totaldb),pContext->in_clone,2,byte_counter);
+            apply_volume(DbToAmpl(pContext->totaldb), pContext->in_clone, 2, byte_counter);
             /*
             if (getprop_bool("media.audiohal.outdump")) {
                 FILE *fp1 = fopen("/data/audio_fadein.pcm", "a+");
@@ -4354,13 +4299,13 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
             }*/
             for (int i = 0; i < blockCount; i++) {
                 for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                    if (pContext->ch_num == 0 /*for 2ch process*/) {
+                    if (pContext->ch_num == 2 /*for 2ch process*/) {
                         pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
                         pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
                         for (int i = 2; i < 12; i++) {
                             pContext->ppMappedInCh[i][sampleCount] = 0;
                         }
-                   } else if (pContext->ch_num == 1 /*for 5.1 ch process*/) {
+                   } else if (pContext->ch_num == 6 /*for 5.1 ch process*/) {
                         for (int i = 0; i < 6; i++) {
                             pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
                         }
@@ -4381,10 +4326,10 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
                     }
                 }*/
                 for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                    if (pContext->ch_num == 0) {
+                    if (pContext->ch_num == 2) {
                         *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16) + (*tmp++);
                         *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16) + (*tmp++);
-                    } else if (pContext->ch_num == 1) {
+                    } else if (pContext->ch_num == 6) {
                         *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16) + (*tmp++);
                         *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16) + (*tmp);
                         tmp += 5;
@@ -4394,13 +4339,13 @@ int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffe
         } else {
             for (int i = 0; i < blockCount; i++) {
                 for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                    if (pContext->ch_num == 0 /*for 2ch process*/) {
+                    if (pContext->ch_num == 2 /*for 2ch process*/) {
                         pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
                         pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
                         for (int i = 2; i < 12; i++) {
                             pContext->ppMappedInCh[i][sampleCount] = 0;
                         }
-                   } else if (pContext->ch_num == 1 /*for 5.1 ch process*/) {
+                   } else if (pContext->ch_num == 6 /*for 5.1 ch process*/) {
                         for (int i = 0; i < 6; i++) {
                             pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
                         }
@@ -4427,7 +4372,7 @@ int dump(vxContext *pContext __unused)
     return 0;
 }
 
-int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
+static int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         void *pCmdData, uint32_t *replySize, void *pReplyData)
 {
     vxContext * pContext = (vxContext *)self;
@@ -4465,6 +4410,7 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         pContext->state = VIRTUALX_STATE_INITIALIZED;
         property_set("media.libplayer.dtsMulChPcm","false");
         *(int *)pReplyData = 0;
+        pContext->ch_num = 2;
         break;
     case EFFECT_CMD_GET_PARAM:
         if (pCmdData == NULL ||
@@ -4526,7 +4472,7 @@ int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
     return 0;
 }
 
-int Virtualx_getDescriptor(effect_handle_t self, effect_descriptor_t *pDescriptor)
+static int Virtualx_getDescriptor(effect_handle_t self, effect_descriptor_t *pDescriptor)
 {
     vxContext * pContext = (vxContext *) self;
 
@@ -4568,6 +4514,7 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
 
     if (Virtualx_load_lib(pContext) < 0) {
         property_set("media.libplayer.dtsMulChPcm","false");
+        pContext->ch_num = 2;
         ALOGE("%s: Load Library File faied", __FUNCTION__);
     }
 

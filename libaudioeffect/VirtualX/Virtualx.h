@@ -25,16 +25,6 @@
 #define VX_MEM_USAGE 50        // Expressed in kB
 #define VX_MAX_PARAM_SIZE 32
 
-typedef struct Virtualx_param_s {
-    effect_param_t param;
-    uint32_t command;
-    union {
-        int32_t v;
-        float f;
-        float params[VX_MAX_PARAM_SIZE];
-    };
-} Virtualx_param_t;
-
 typedef enum {
     /*Tuning interface*/
     DTS_PARAM_MBHL_ENABLE_I32 = 0,
