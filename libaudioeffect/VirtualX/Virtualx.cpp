@@ -19,7 +19,7 @@
  */
 
 #define LOG_TAG "Virtualx_Effect"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <fcntl.h>
 #include <assert.h>
@@ -459,18 +459,7 @@ typedef struct vxContext_s {
     float                           hpratio;
     float                           extbass;
     int32_t                         ch_num;
-    AudioFade_t                     gAudFade;
-    AudioFade_t                     gAudFade1;
-    // when recieve setting change from app,
-    //"fade audio out->do setting->fade audio In"
-    int                             bUseFade;
-    int                             bUseFade1;
-    int                             bUseFade2;
-    int                             bUseFade3;
-    int                             bUseFade4;
     int32_t                         samplecounter;
-    int16_t                         *in_clone;
-    float                           totaldb;
 } vxContext;
 
 const char *VXStatusstr[] = {"Disable", "Enable"};
@@ -708,13 +697,14 @@ static int Virtualx_load_ini_file(vxContext *pContext)
     ini_value = pIniParser->GetString("Virtualx", "enable", "1");
     if (ini_value == NULL)
         goto error;
+
     //ALOGD("%s: enable -> %s", __FUNCTION__, ini_value);
     data->enable = atoi(ini_value);
     if (data->enable == 0) {
-        property_set("media.libplayer.dtsMulChPcm","false");
         pContext->ch_num = 2;
     }
-     //virtuallibx parse
+
+    //virtuallibx parse
     ini_value =  pIniParser->GetString("Virtualx", "virtuallibx", "NULL");
     if (ini_value == NULL)
         goto error;
@@ -1908,8 +1898,7 @@ static int Virtualx_init(vxContext *pContext)
     if (pContext->gVXLibHandler) {
         (*pContext->gVirtualxapi.VX_init)((void*) data);
     }
-    pContext->in_clone = (int16_t*)malloc(4096 * sizeof(int16_t) * 6);
-    memset(pContext->in_clone, 0, 4096 * sizeof(int16_t) * 6);
+
     ALOGD("%s: sucessful", __FUNCTION__);
     return 0;
 }
@@ -1931,29 +1920,27 @@ static int Virtualx_configure(vxContext *pContext, effect_config_t *pConfig)
 {
     if (pConfig->inputCfg.samplingRate != pConfig->outputCfg.samplingRate)
         return -EINVAL;
+
     if (pConfig->inputCfg.format != pConfig->outputCfg.format)
-       return -EINVAL;
+        return -EINVAL;
     /*
     if (pConfig->inputCfg.channels != AUDIO_CHANNEL_OUT_STEREO) {
-        ALOGW("%s: channels in = 0x%x channels out = 0x%x", __FUNCTION__, pConfig->inputCfg.channels, pConfig->outputCfg.channels);
+        ALOGW("%s: channels in = 0x%x channels out = 0x%x", __FUNCTION__,
+            pConfig->inputCfg.channels, pConfig->outputCfg.channels);
         pConfig->inputCfg.channels = pConfig->outputCfg.channels = AUDIO_CHANNEL_OUT_STEREO;
     }
     */
     if (pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_WRITE &&
                 pConfig->outputCfg.accessMode != EFFECT_BUFFER_ACCESS_ACCUMULATE)
         return -EINVAL;
+
     if (pConfig->inputCfg.format != AUDIO_FORMAT_PCM_16_BIT) {
-        ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__, pConfig->inputCfg.format, pConfig->outputCfg.format);
+        //ALOGW("%s: format in = 0x%x format out = 0x%x", __FUNCTION__,
+        //    pConfig->inputCfg.format, pConfig->outputCfg.format);
         pConfig->inputCfg.format = pConfig->outputCfg.format = AUDIO_FORMAT_PCM_16_BIT;
     }
     memcpy(&pContext->config, pConfig, sizeof(effect_config_t));
 
-    /** default channel is 2**/
-    if (pContext->bUseFade) {
-        int channels = 2;
-        AudioFadeSetFormat(&pContext->gAudFade, pConfig->inputCfg.samplingRate, channels, pConfig->inputCfg.format);
-        AudioFadeSetFormat(&pContext->gAudFade1, pConfig->inputCfg.samplingRate, channels, pConfig->inputCfg.format);
-    }
     return 0;
 }
 
@@ -1974,10 +1961,8 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         value = *(int32_t *)pValue;
         data->enable = value;
         if (data->enable) {
-            property_set("media.libplayer.dtsMulChPcm","true");
             pContext->ch_num = 6;
         } else {
-            property_set("media.libplayer.dtsMulChPcm","false");
             pContext->ch_num = 2;
         }
         ALOGD("%s: Set status -> %s", __FUNCTION__, VXStatusstr[value]);
@@ -2425,15 +2410,6 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         if (value > 1)
             value = 1;
 
-        if (value == 0) {
-            AudioFadeSetFormat(&pContext->gAudFade, 48000, 2, AUDIO_FORMAT_PCM_16_BIT);
-            AudioFadeSetFormat(&pContext->gAudFade1, 48000, 2, AUDIO_FORMAT_PCM_16_BIT);
-            pContext->ch_num = 2;
-        } else {
-            AudioFadeSetFormat(&pContext->gAudFade, 48000, 6, AUDIO_FORMAT_PCM_16_BIT);
-            AudioFadeSetFormat(&pContext->gAudFade1, 48000, 6, AUDIO_FORMAT_PCM_16_BIT);
-            pContext->ch_num = 6;
-        }
         (*pContext->gVirtualxapi.setvxlib1_inmode)(value);
         ALOGD("%s set vxlib1 inmode %d",__FUNCTION__, value);
         break;
@@ -2759,16 +2735,18 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         /* Set input channel of Truvoulme & VXlib and update out to dts decoder */
         /* two case force audio output stereo: 1) all VX bypass 2) TSX discard */
         if (value == 6 && data->enable && !tsx_discard) {
-            property_set("media.libplayer.dtsMulChPcm","true");
             (*pContext->gVirtualxapi.setlc_inmode)(4);
             (*pContext->gVirtualxapi.setvxlib1_inmode)(1);
             pContext->ch_num = 6;
         } else {
-            property_set("media.libplayer.dtsMulChPcm","false");
             (*pContext->gVirtualxapi.setlc_inmode)(0);
             (*pContext->gVirtualxapi.setvxlib1_inmode)(0);
             pContext->ch_num = 2;
         }
+
+        ALOGI("Set VX input channel: %d, VX is enable = %d, tsx_discard = %d",
+                pContext->ch_num, data->enable, tsx_discard);
+
         return pContext->ch_num;
         break;
     case AUDIO_DTS_PARAM_TYPE_NONE:
@@ -2797,7 +2775,6 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         else if (scale > 1.0)
             scale = 1.0;
         ALOGV("scale2 is %f",scale);
-        pContext->totaldb = AmplToDb(scale);
         value = FXP32(scale,2);
         data->headroom_gain = value;
         scale = *p++;
@@ -2814,11 +2791,6 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         else if (value > 1)
             value = 1;
         ALOGV("value4 is %d",value);
-        if (data->vxtrusurround_enable != value) {
-            pContext->bUseFade1 = 1;
-        } else {
-            pContext->bUseFade1 = 0;
-        }
         data->vxtrusurround_enable = value;
         value = (int32_t)*p++;
         if (value < 0)
@@ -2899,11 +2871,6 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         else if (value > 1)
             value = 1;
         ALOGV("value6 is %d",value);
-        if (data->heightupmix_enable != value) {
-            pContext->bUseFade2 = 1;
-        } else {
-            pContext->bUseFade2 = 0;
-        }
         data->heightupmix_enable = value;
         value = (int32_t)*p++;
         if (value < 0)
@@ -2955,11 +2922,6 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         else if (value > 1)
             value = 1;
         ALOGV("value4 is %d",value);
-        if (data->tbhdx_enable != value) {
-            pContext->bUseFade3 = 1;
-        } else {
-            pContext->bUseFade3 = 0;
-        }
         data->tbhdx_enable = value;
         value = (int32_t)*p++;
         if (value < 0)
@@ -3098,7 +3060,6 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         else if (scale > 4.0)
             scale = 4.0;
         ALOGV("scale3 is %f",scale);
-        pContext->totaldb += AmplToDb(scale);
         value = FXP32(scale,4);
         data->output_gain = value;
         value = (int32_t)*p++;
@@ -3114,10 +3075,6 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         else if (value > 1)
             value = 1;
         ALOGV("value5 is %d",value);
-        if (data->vxdefinition_enable != value)
-            pContext->bUseFade4 = 1;
-        else
-            pContext->bUseFade4 = 0;
         data->vxdefinition_enable = value;
         scale = *p;
         if (scale < 0.0)
@@ -3127,19 +3084,7 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         ALOGV("scale6 is %f",scale);
         value = FXP32(scale,2);
         data->vxdefinition_level = value;
-        pContext->totaldb = pContext->totaldb - 24 + AmplToDb(data->vxcfg.mbhl.mbhl_boost) + AmplToDb(data->vxcfg.mbhl.mbhl_outputgain)
-            - AmplToDb(data->vxcfg.mbhl.mbhl_reflevel);
-        if (pContext->bUseFade1 || pContext->bUseFade2 || pContext->bUseFade3 || pContext->bUseFade4) {
-            pContext->bUseFade = 1;
-            pContext->samplecounter = 0;
-            AudioFade_t *pAudioFade = (AudioFade_t *) & (pContext->gAudFade);
-            AudioFade_t *pAudioFade1 = (AudioFade_t *) & (pContext->gAudFade1);
-            AudioFadeInit(pAudioFade, fadeLinear, 10, 0);
-            AudioFadeInit(pAudioFade1, fadeLinear, 10, 0);
-            AudioFadeSetState(pAudioFade, AUD_FADE_OUT_START);
-            AudioFadeSetState(pAudioFade1, AUD_FADE_MUTE);
-        } else {
-            pContext->bUseFade = 0;
+        {
             (*pContext->gVirtualxapi.setvxlib1_enable)(data->vxlib_enable);
             (*pContext->gVirtualxapi.setvxlib1_heardroomgain)(data->headroom_gain);
             //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
@@ -4080,167 +4025,6 @@ static int Virtualx_release(vxContext *pContext)
     return 0;
 }
 
-static int Virtualx_Dofade(vxContext *pContext, void * rawbuf, int fadenum, unsigned int nSamples)
-{
-    AudioFade_t *pAudFade = (AudioFade_t *) & (pContext->gAudFade);
-    AudioFade_t *pAudFade1 = (AudioFade_t *) & (pContext->gAudFade1);
-    vxdata   *data = &pContext->gvxdata;
-    switch (fadenum) {
-    case 1: {
-        switch (pAudFade->mFadeState) {
-        case AUD_FADE_OUT_START: {
-          pAudFade->mTargetVolume = 0;
-          pAudFade->mStartVolume = 1 << 16;
-          pAudFade->mCurrentVolume = 1 << 16;
-          pAudFade->mfadeTimeUsed = 0;
-          pAudFade->mfadeFramesUsed = 0;
-          pAudFade->mfadeTimeTotal = DEFAULT_FADE_OUT_MS;
-          pAudFade->muteCounts = 1;
-          AudioFadeBufferdelay(pAudFade, rawbuf, nSamples,0);
-          pAudFade->mFadeState = AUD_FADE_OUT;
-        }
-        break;
-        case AUD_FADE_OUT: {
-          // do fade out process
-          if (pAudFade->mCurrentVolume != 0) {
-              AudioFadeBufferdelay(pAudFade, rawbuf, nSamples,0);
-          } else {
-              pAudFade->mFadeState = AUD_FADE_MUTE;
-              mutePCMBuf(pAudFade, rawbuf, nSamples);
-          }
-        }
-        break;
-        case AUD_FADE_MUTE: {
-          if (pAudFade->muteCounts <= 0) {
-              pAudFade->mFadeState = AUD_FADE_IN;
-              // slowly increase audio volume
-              pAudFade->mTargetVolume = 1 << 16;
-              pAudFade->mStartVolume = 0;
-              pAudFade->mCurrentVolume = 0;
-              pAudFade->mfadeTimeUsed = 0;
-              pAudFade->mfadeFramesUsed = 0;
-              pAudFade->mfadeTimeTotal = DEFAULT_FADE_IN_MS;
-              // do actrually setting
-              (*pContext->gVirtualxapi.setvxlib1_enable)(data->vxlib_enable);
-              (*pContext->gVirtualxapi.setvxlib1_heardroomgain)(data->headroom_gain);
-              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
-              (*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
-              (*pContext->gVirtualxapi.settsx_pssvmtrxenable)(data->upmixer_enable);
-              (*pContext->gVirtualxapi.settsx_horizontctl)(data->horizontaleffect_control);
-              (*pContext->gVirtualxapi.settsx_frntctrl)(data->frontwidening_control);
-              (*pContext->gVirtualxapi.settsx_surroundctrl)(data->surroundwidening_control);
-              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
-              //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
-              (*pContext->gVirtualxapi.settsx_hghtupmixenable)(data->heightupmix_enable);
-              (*pContext->gVirtualxapi.settsx_heightdiscards)(data->height_discard);
-              (*pContext->gVirtualxapi.settsx_heightmixcoeff)(data->heightmix_coeff);
-              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
-              (*pContext->gVirtualxapi.settbhdx_enable)(data->tbhdx_enable);
-              (*pContext->gVirtualxapi.settbhdx_monomode)(data->monomode_enable);
-              (*pContext->gVirtualxapi.settbhdx_spksize)(data->speaker_size);
-              (*pContext->gVirtualxapi.settbhdx_tempgain)(data->tmporal_gain);
-              (*pContext->gVirtualxapi.settbhdx_maxgain)(data->max_gain);
-              (*pContext->gVirtualxapi.settbhdx_hporder)(data->hpfo);
-              (*pContext->gVirtualxapi.settbhdx_hpenable)(data->highpass_enble);
-              //(*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
-              //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
-              (*pContext->gVirtualxapi.settsx_lprgain)(data->phantomcenter_mixlevel);
-              (*pContext->gVirtualxapi.settsx_centergain)(data->center_gain);
-              (*pContext->gVirtualxapi.settsx_dcenable)(data->vxdialogclarity_enable);
-              (*pContext->gVirtualxapi.settsx_dccontrol)(data->vxdialogclarity_level);
-              (*pContext->gVirtualxapi.setvxlib1_procoutgain)(data->output_gain);
-              //(*pContext->gVirtualxapi.settsx_enable)(data->vxtrusurround_enable);
-              (*pContext->gVirtualxapi.settsx_defenable)(data->vxdefinition_enable);
-              (*pContext->gVirtualxapi.settsx_defcontrol)(data->vxdefinition_level);
-              mutePCMBuf(pAudFade, rawbuf, nSamples);
-          } else {
-              mutePCMBuf(pAudFade, rawbuf, nSamples);
-              pAudFade->muteCounts--;
-          }
-        }
-        break;
-        case AUD_FADE_IN: {
-          AudioFadeBufferdelay(pAudFade, rawbuf, nSamples, 0);
-          if (pAudFade->mCurrentVolume == 1 << 16) {
-              pAudFade->mFadeState = AUD_FADE_IDLE;
-          }
-        }
-        break;
-        case AUD_FADE_IDLE:
-          // do nothing
-          break;
-        default:
-          break;
-        }
-    }
-    break;
-    case 2: {
-        switch (pAudFade1->mFadeState) {
-        case AUD_FADE_MUTE: {
-            pContext->samplecounter += nSamples;
-            if (pContext->samplecounter >= (int)(data->latency - (data->latency % nSamples))) {
-                pAudFade1->mFadeState = AUD_FADE_IN_START;
-            }
-            mutePCMBuf(pAudFade1, rawbuf, nSamples);
-        }
-        break;
-        case AUD_FADE_IN_START: {
-            pAudFade1->mTargetVolume = 1 << 16;
-            pAudFade1->mStartVolume = 0;
-            pAudFade1->mCurrentVolume = 0;
-            pAudFade1->mfadeTimeUsed = 0;
-            pAudFade1->mfadeFramesUsed = 0;
-            pAudFade1->mfadeTimeTotal = DEFAULT_FADE_IN_MS;
-            pAudFade1->muteCounts = 2;
-            AudioFadeBufferdelay(pAudFade1, rawbuf, nSamples, (data->latency % nSamples));
-            pAudFade1->mFadeState = AUD_FADE_IN;
-        }
-        break;
-        case AUD_FADE_IN: {
-            // do fade out process
-            if (pAudFade1->mCurrentVolume != 1 << 16) {
-                AudioFadeBufferdelay(pAudFade1, rawbuf, nSamples, 0);
-            } else {
-                pAudFade1->mFadeState = AUD_FADE_HOLD;
-
-            }
-        }
-        break;
-        case AUD_FADE_HOLD: {
-            if (pAudFade1->muteCounts <= 0) {
-                pAudFade1->mFadeState = AUD_FADE_OUT;
-                // slowly increase audio volume
-                pAudFade1->mTargetVolume = 0;
-                pAudFade1->mStartVolume = 1 << 16;
-                pAudFade1->mCurrentVolume = 1 << 16;
-                pAudFade1->mfadeTimeUsed = 0;
-                pAudFade1->mfadeFramesUsed = 0;
-                pAudFade1->mfadeTimeTotal = DEFAULT_FADE_OUT_MS;
-            } else {
-                pAudFade1->muteCounts--;
-            }
-        }
-        break;
-        case AUD_FADE_OUT: {
-            AudioFadeBufferdelay(pAudFade1, rawbuf, nSamples, 0);
-            if (pAudFade1->mCurrentVolume == 0) {
-                pAudFade1->mFadeState = AUD_FADE_IDLE;
-            }
-        }
-        break;
-        case AUD_FADE_IDLE:
-            // do nothing
-            mutePCMBuf(pAudFade1, rawbuf, nSamples);
-        break;
-        default:
-            break;
-        }
-    }
-    break;
-    }
-    return 0;
-}
-
 //-------------------Effect Control Interface Implementation--------------------------
 
 static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t *outBuffer)
@@ -4261,106 +4045,47 @@ static int Virtualx_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
     int16_t  *in   = (int16_t *)inBuffer->raw;
     int16_t  *out  = (int16_t *)outBuffer->raw;
     int32_t  byte_counter;
+
     if (pContext->ch_num == 2) {
         byte_counter = inBuffer->frameCount * sizeof(int16_t) * 2;
     } else {
         byte_counter = inBuffer->frameCount * sizeof(int16_t) * 6;
     }
-    memcpy(pContext->in_clone,in,byte_counter);
-    int16_t *tmp = pContext->in_clone;
+
     vxdata  *data = &pContext->gvxdata;
     int32_t blockSize = DTS_VIRTUALX_FRAME_SIZE;
     int32_t blockCount = inBuffer->frameCount / blockSize;
-    unsigned int nSamples = (unsigned int)inBuffer->frameCount;
     if (!data->enable || !pContext->gVXLibHandler) {
         for (size_t i = 0; i < inBuffer->frameCount; i++) {
             *out++ = *in++;
             *out++ = *in++;
         }
     } else {
-        if (pContext->bUseFade) {
-            Virtualx_Dofade(pContext, in, 1, nSamples);
-            Virtualx_Dofade(pContext, pContext->in_clone, 2, nSamples);
-            apply_volume(DbToAmpl(pContext->totaldb), pContext->in_clone, 2, byte_counter);
-            /*
-            if (getprop_bool("media.audiohal.outdump")) {
-                FILE *fp1 = fopen("/data/audio_fadein.pcm", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)in, 1, byte_counter, fp1);
-                    fclose(fp1);
-                }
-            }
-            if (getprop_bool("media.audiohal.outdump")) {
-                FILE *fp1 = fopen("/data/audio_tmpp.pcm", "a+");
-                if (fp1) {
-                    int flen = fwrite((char *)pContext->in_clone, 1, byte_counter, fp1);
-                    fclose(fp1);
-                }
-            }*/
-            for (int i = 0; i < blockCount; i++) {
-                for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                    if (pContext->ch_num == 2 /*for 2ch process*/) {
-                        pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
-                        pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
-                        for (int i = 2; i < 12; i++) {
-                            pContext->ppMappedInCh[i][sampleCount] = 0;
-                        }
-                   } else if (pContext->ch_num == 6 /*for 5.1 ch process*/) {
-                        for (int i = 0; i < 6; i++) {
-                            pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
-                        }
-                        for (int i = 6; i < 12; i++) {
-                            pContext->ppMappedInCh[i][sampleCount] = 0;
-                        }
+        for (int i = 0; i < blockCount; i++) {
+            for (int sampleCount = 0; sampleCount < DTS_VIRTUALX_FRAME_SIZE; sampleCount++) {
+                if (pContext->ch_num == 2 /*for 2ch process*/) {
+                    pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
+                    pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
+                    for (int i = 2; i < 12; i++) {
+                        pContext->ppMappedInCh[i][sampleCount] = 0;
                     }
-                }
-                (*pContext->gVirtualxapi.Truvolume_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
-                (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
-                (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
-                /*
-                if (getprop_bool("media.audiohal.outdump")) {
-                    FILE *fp1 = fopen("/data/ppMappedOutCh.pcm", "a+");
-                    if (fp1) {
-                        int flen = fwrite((char *)pContext->ppMappedOutCh[0], 1, 256*4, fp1);
-                        fclose(fp1);
+                } else if (pContext->ch_num == 6 /*for 5.1 ch process*/) {
+                    for (int i = 0; i < 6; i++) {
+                        pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
                     }
-                }*/
-                for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                    if (pContext->ch_num == 2) {
-                        *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16) + (*tmp++);
-                        *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16) + (*tmp++);
-                    } else if (pContext->ch_num == 6) {
-                        *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16) + (*tmp++);
-                        *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16) + (*tmp);
-                        tmp += 5;
+                    for (int i = 6; i < 12; i++) {
+                        pContext->ppMappedInCh[i][sampleCount] = 0;
                     }
                 }
             }
-        } else {
-            for (int i = 0; i < blockCount; i++) {
-                for (int sampleCount = 0; sampleCount < 256; sampleCount++) {
-                    if (pContext->ch_num == 2 /*for 2ch process*/) {
-                        pContext->ppMappedInCh[0][sampleCount] = (int32_t(*in++)) << 16; // L & R
-                        pContext->ppMappedInCh[1][sampleCount] = (int32_t(*in++)) << 16;
-                        for (int i = 2; i < 12; i++) {
-                            pContext->ppMappedInCh[i][sampleCount] = 0;
-                        }
-                   } else if (pContext->ch_num == 6 /*for 5.1 ch process*/) {
-                        for (int i = 0; i < 6; i++) {
-                            pContext->ppMappedInCh[i][sampleCount] = (int32_t(*in++)) << 16;
-                        }
-                        for (int i = 6; i < 12; i++) {
-                            pContext->ppMappedInCh[i][sampleCount] = 0;
-                        }
-                    }
-                }
-                (*pContext->gVirtualxapi.Truvolume_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
-                (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
-                (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
-                for (int sampleCount = 0;sampleCount < 256; sampleCount++) {
-                    *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16);
-                    *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16);
-                }
+
+            (*pContext->gVirtualxapi.Truvolume_process)(pContext->ppMappedInCh,pContext->ppMappedOutCh);
+            (*pContext->gVirtualxapi.VX_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
+            (*pContext->gVirtualxapi.MBHL_process)(pContext->ppMappedOutCh,pContext->ppMappedOutCh);
+
+            for (int sampleCount = 0; sampleCount < DTS_VIRTUALX_FRAME_SIZE; sampleCount++) {
+                *out++  = (int16_t)(pContext->ppMappedOutCh[0][sampleCount] >> 16);
+                *out++  = (int16_t)(pContext->ppMappedOutCh[1][sampleCount] >> 16);
             }
         }
     }
@@ -4408,7 +4133,6 @@ static int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmd
         if (pContext->state != VIRTUALX_STATE_ACTIVE)
             return -ENOSYS;
         pContext->state = VIRTUALX_STATE_INITIALIZED;
-        property_set("media.libplayer.dtsMulChPcm","false");
         *(int *)pReplyData = 0;
         pContext->ch_num = 2;
         break;
@@ -4513,7 +4237,6 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
     }
 
     if (Virtualx_load_lib(pContext) < 0) {
-        property_set("media.libplayer.dtsMulChPcm","false");
         pContext->ch_num = 2;
         ALOGE("%s: Load Library File faied", __FUNCTION__);
     }
@@ -4525,14 +4248,7 @@ int VirtualxLib_Create(const effect_uuid_t *uuid, int32_t sessionId __unused, in
 
     pContext->state = VIRTUALX_STATE_INITIALIZED;
 
-    pContext->bUseFade = 1;
-    AudioFadeInit((AudioFade_t *) & (pContext->gAudFade), fadeLinear, 10, 0);
-    AudioFadeSetState((AudioFade_t *) & (pContext->gAudFade), AUD_FADE_IDLE);
-    AudioFadeInit((AudioFade_t *) & (pContext->gAudFade1), fadeLinear, 10, 0);
-    AudioFadeSetState((AudioFade_t *) & (pContext->gAudFade1), AUD_FADE_IDLE);
-
     ALOGD("%s: %p", __FUNCTION__, pContext);
-
     return 0;
 }
 
@@ -4543,9 +4259,7 @@ int VirtualxLib_Release(effect_handle_t handle)
         return -EINVAL;
     Virtualx_release(pContext);
     unload_Virtualx_lib(pContext);
-    property_set("media.libplayer.dtsMulChPcm","false");
     pContext->state = VIRTUALX_STATE_UNINITIALIZED;
-    free(pContext->in_clone);
     delete pContext;
     ALOGD("VirtualxLib_Release");
     return 0;
