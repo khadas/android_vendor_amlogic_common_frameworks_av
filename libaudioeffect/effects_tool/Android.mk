@@ -24,6 +24,10 @@ LOCAL_SHARED_LIBRARIES += \
     libaudiofoundation
 endif
 
+ifeq ($(PLATFORM_VERSION), S)
+LOCAL_CFLAGS += -DUSE_IDENTITY_CREATE_AUDIOEFFECT
+endif
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../VirtualX \
 
@@ -54,4 +58,7 @@ LOCAL_SHARED_LIBRARIES += \
     libaudiofoundation
 endif
 
+ifeq ($(PLATFORM_VERSION), S)
+LOCAL_CFLAGS += -DUSE_IDENTITY_CREATE_AUDIOEFFECT
+endif
 include $(BUILD_EXECUTABLE)
