@@ -41,7 +41,9 @@
 #define LSR (1)
 
 using namespace android;
-
+#ifdef USE_IDENTITY_CREATE_AUDIOEFFECT
+using media::permission::Identity;
+#endif
 //-------UUID------------------------------------------
 typedef enum {
     EFFECT_BALANCE = 0,
@@ -943,8 +945,13 @@ static int create_audio_effect(AudioEffect **gAudioEffect, String16 name16, int 
 
     if (*gAudioEffect != NULL)
         return 0;
-
+#ifdef USE_IDENTITY_CREATE_AUDIOEFFECT
+    Identity identity = Identity();
+    identity.packageName = std::string(String8(name16).string());
+    pAudioEffect = new AudioEffect(identity);
+#else
     pAudioEffect = new AudioEffect(name16);
+#endif
     if (!pAudioEffect) {
         LOG("create audio effect object failed\n");
         return -1;
