@@ -4103,6 +4103,9 @@ static int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmd
     vxContext * pContext = (vxContext *)self;
     effect_param_t *p;
     int voffset;
+
+    ALOGD("%s: cmd = %u", __FUNCTION__, cmdCode);
+
     if (pContext == NULL || pContext->state == VIRTUALX_STATE_UNINITIALIZED)
         return -EINVAL;
     switch (cmdCode) {
@@ -4134,7 +4137,6 @@ static int Virtualx_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmd
             return -ENOSYS;
         pContext->state = VIRTUALX_STATE_INITIALIZED;
         *(int *)pReplyData = 0;
-        pContext->ch_num = 2;
         break;
     case EFFECT_CMD_GET_PARAM:
         if (pCmdData == NULL ||
