@@ -13,6 +13,9 @@ LOCAL_SHARED_LIBRARIES := \
     libdl \
     libutils \
     libamaudioutils \
+    android.hardware.audio@4.0 \
+    android.hardware.audio.common@4.0 \
+    android.hardware.audio.common@4.0-util
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH) \
@@ -22,6 +25,7 @@ LOCAL_C_INCLUDES := \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
     system/media/audio/include \
+    system/core/libutils/include
 
 LOCAL_SRC_FILES := Virtualx.cpp
 LOCAL_SRC_FILES += ../Utility/AudioFade.c

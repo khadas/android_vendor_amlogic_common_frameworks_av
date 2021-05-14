@@ -798,7 +798,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             else
                 LOG("Virtualx: Failed\n");
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("Virtualx: Status is %d -> %s, 16bit normalized data ----> 0x%08X\n",
+            LOG("Virtualx: Status is %d -> %s, [0x%08X]\n",
                 gParamValue, VXStatusstr[gVirtualxParam[gParamIndex].v], FLOAT2INT(gParamValue));
             return 0;
        case DTS_PARAM_MBHL_ENABLE_I32:
@@ -809,7 +809,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_BYPASS_GAIN_I32:
@@ -820,7 +820,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl bypassgain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl bypassgain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_REFERENCE_LEVEL_I32:
@@ -831,7 +831,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl reference level is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl reference level is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_VOLUME_I32:
@@ -842,7 +842,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl volume is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl volume is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_VOLUME_STEP_I32:
@@ -853,7 +853,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl volume step is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl volume step is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_BALANCE_STEP_I32:
@@ -864,7 +864,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl balance step is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl balance step is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_OUTPUT_GAIN_I32:
@@ -875,7 +875,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             // gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl output gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl output gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_BOOST_I32:
@@ -886,7 +886,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl boost is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl boost is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_THRESHOLD_I32:
@@ -897,7 +897,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl threshold is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl threshold is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_SLOW_OFFSET_I32:
@@ -908,7 +908,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl slow offset is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl slow offset is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_FAST_ATTACK_I32:
@@ -919,7 +919,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl fast attack is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl fast attack is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_FAST_RELEASE_I32:
@@ -930,7 +930,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl fast release is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl fast release is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_SLOW_ATTACK_I32:
@@ -941,7 +941,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl slow attack is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl slow attack is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_SLOW_RELEASE_I32:
@@ -952,7 +952,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl slow release is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl slow release is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_DELAY_I32:
@@ -963,7 +963,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl delay is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl delay is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_ENVELOPE_FREQUENCY_I32:
@@ -974,7 +974,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl envelope freq is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl envelope freq is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_MODE_I32:
@@ -985,7 +985,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl mode is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl mode is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_PROCESS_DISCARD_I32:
@@ -996,7 +996,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl process discard is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl process discard is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_CROSS_LOW_I32:
@@ -1007,7 +1007,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl cross low  is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl cross low  is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_CROSS_MID_I32:
@@ -1018,7 +1018,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl cross mid is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl cross mid is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_COMP_ATTACK_I32:
@@ -1029,7 +1029,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor attack time is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor attack time is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_COMP_LOW_RELEASE_I32:
@@ -1040,7 +1040,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor low release time is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor low release time is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_COMP_LOW_RATIO_I32:
@@ -1051,7 +1051,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor low ratio is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor low ratio is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_LOW_THRESH_I32:
@@ -1062,7 +1062,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor low threshold is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor low threshold is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_LOW_MAKEUP_I32:
@@ -1073,7 +1073,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor low makeup is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor low makeup is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_MID_RELEASE_I32:
@@ -1084,7 +1084,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor mid release time is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor mid release time is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_COMP_MID_RATIO_I32:
@@ -1095,7 +1095,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor mid ratio is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor mid ratio is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_MID_THRESH_I32:
@@ -1106,7 +1106,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor mid threshold is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor mid threshold is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_MID_MAKEUP_I32:
@@ -1117,7 +1117,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor mid makeup is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor mid makeup is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_HIGH_RELEASE_I32:
@@ -1128,7 +1128,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor high release time is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor high release time is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_MBHL_COMP_HIGH_RATIO_I32:
@@ -1139,7 +1139,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor high ratio is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor high ratio is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_HIGH_THRESH_I32:
@@ -1150,7 +1150,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor high threshold is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor high threshold is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_COMP_HIGH_MAKEUP_I32:
@@ -1161,7 +1161,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("mbhl compressor high makeup is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("mbhl compressor high makeup is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TBHDX_ENABLE_I32:
@@ -1172,7 +1172,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TBHDX_MONO_MODE_I32:
@@ -1183,7 +1183,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx mono mode is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx mono mode is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TBHDX_SPKSIZE_I32:
@@ -1194,7 +1194,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx spksize is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx spksize is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TBHDX_TEMP_GAIN_I32:
@@ -1205,7 +1205,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx temp gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx temp gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TBHDX_MAXGAIN_I32:
@@ -1216,7 +1216,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx max gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx max gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TBHDX_PROCESS_DISCARD_I32:
@@ -1227,7 +1227,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
            //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx process discard is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx process discard is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TBHDX_HPORDER_I32:
@@ -1238,7 +1238,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx high pass filter order is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx high pass filter order is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TBHDX_HP_ENABLE_I32:
@@ -1249,7 +1249,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tbhdx high pass enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tbhdx high pass enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_VX_ENABLE_I32:
@@ -1260,7 +1260,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("vxlib1 enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("vxlib1 enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_VX_INPUT_MODE_I32:
@@ -1271,7 +1271,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("vxlib1 input mode is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("vxlib1 input mode is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_VX_HEADROOM_GAIN_I32:
@@ -1282,7 +1282,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("vxlib1 headroom gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("vxlib1 headroom gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_VX_PROC_OUTPUT_GAIN_I32:
@@ -1293,7 +1293,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("vxlib1 output gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("vxlib1 output gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TSX_ENABLE_I32:
@@ -1304,7 +1304,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("vxlib1 tsx enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("vxlib1 tsx enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TSX_PASSIVEMATRIXUPMIX_ENABLE_I32:
@@ -1315,7 +1315,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("vxlib1 tsx passive matrix upmixer enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("vxlib1 tsx passive matrix upmixer enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TSX_HORIZ_VIR_EFF_CTRL_I32:
@@ -1326,7 +1326,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("vxlib1 tsx horizontal Effect is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("vxlib1 tsx horizontal Effect is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TSX_FRNT_CTRL_I32:
@@ -1337,7 +1337,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx frnt ctrl is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx frnt ctrl is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TSX_SRND_CTRL_I32:
@@ -1348,7 +1348,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx srnd ctrl is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx srnd ctrl is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TSX_LPR_GAIN_I32:
@@ -1359,7 +1359,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx lprtoctr mix gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx lprtoctr mix gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TSX_HEIGHTMIX_COEFF_I32:
@@ -1370,7 +1370,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx heightmix coeff is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx heightmix coeff is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TSX_CENTER_GAIN_I32:
@@ -1381,7 +1381,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx center gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx center gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TSX_HEIGHT_DISCARD_I32:
@@ -1392,7 +1392,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx height discard is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx height discard is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TSX_PROCESS_DISCARD_I32:
@@ -1403,7 +1403,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx process discard is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx process discard is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TSX_HEIGHT_UPMIX_ENABLE_I32:
@@ -1414,7 +1414,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx height upmix enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx height upmix enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_VX_DC_ENABLE_I32:
@@ -1425,7 +1425,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx dc enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx dc enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_VX_DC_CONTROL_I32:
@@ -1436,7 +1436,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx dc level is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx dc level is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_VX_DEF_ENABLE_I32:
@@ -1447,7 +1447,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx def enable is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx def enable is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_VX_DEF_CONTROL_I32:
@@ -1458,7 +1458,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("tsx def level is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("tsx def level is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_LOUDNESS_CONTROL_ENABLE_I32:
@@ -1469,7 +1469,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("loudness control is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("loudness control is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_LOUDNESS_CONTROL_TARGET_LOUDNESS_I32:
@@ -1480,7 +1480,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("loudness control target is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("loudness control target is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_LOUDNESS_CONTROL_PRESET_I32:
@@ -1491,7 +1491,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             //gAudioEffect->getParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("loudness control preset is %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("loudness control preset is %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TBHDX_APP_SPKSIZE_I32:
@@ -1501,7 +1501,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             }
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("app spksize %d, 16bit normalized data ----> 0x%08X\n",
+            LOG("app spksize %d, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].v, FLOAT2INT(gVirtualxParam[gParamIndex].v));
             return 0;
         case DTS_PARAM_TBHDX_APP_HPRATIO_F32:
@@ -1511,7 +1511,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             }
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("app hpratio is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("app hpratio is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_TBHDX_APP_EXTBASS_F32:
@@ -1521,7 +1521,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             }
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("app ettbass is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("app ettbass is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_APP_FRT_LOWCROSS_F32:
@@ -1532,7 +1532,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
              gVirtualxParam[gParamIndex].f = gParamScale;
             rc =gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             LOG("rc is %d\n",rc);
-            LOG("app low freq is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("app low freq is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_MBHL_APP_FRT_MIDCROSS_F32:
@@ -1542,13 +1542,13 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             }
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("app mid freq is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("app mid freq is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case AUDIO_DTS_PARAM_TYPE_TRU_SURROUND:
             for (int i = 0; i < 8; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1557,7 +1557,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case AUDIO_DTS_PARAM_TYPE_CC3D:
             for (int i = 0; i < 8; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1566,7 +1566,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case AUDIO_DTS_PARAM_TYPE_TRU_BASS:
             for (int i = 0; i < 10; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1575,7 +1575,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case AUDIO_DTS_PARAM_TYPE_TRU_DIALOG:
             for (int i = 0; i < 8; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1584,7 +1584,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case AUDIO_DTS_PARAM_TYPE_DEFINATION:
             for (int i = 0; i < 6; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1593,7 +1593,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case AUDIO_DTS_PARAM_TYPE_TRU_VOLUME:
             for (int i = 0; i < 3; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1624,7 +1624,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             }
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("aeq input gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("aeq input gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_AEQ_OUTPUT_GAIN_I16:
@@ -1634,7 +1634,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             }
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("aeq output gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("aeq output gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_AEQ_BYPASS_GAIN_I16:
@@ -1644,7 +1644,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
             }
             gVirtualxParam[gParamIndex].f = gParamScale;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("aeq bypass gain is %f, 16bit normalized data ----> 0x%08X\n",
+            LOG("aeq bypass gain is %f, [0x%08X]\n",
                 gVirtualxParam[gParamIndex].f, FLOAT2INT(gVirtualxParam[gParamIndex].f));
             return 0;
         case DTS_PARAM_AEQ_LR_LINK_I32:
@@ -1659,7 +1659,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case DTS_PARAM_AEQ_BAND_Fre:
             for (int i = 0; i < 5; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1668,7 +1668,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case DTS_PARAM_AEQ_BAND_Gain:
             for (int i = 0; i < 5; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1677,7 +1677,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case DTS_PARAM_AEQ_BAND_Q:
             for (int i = 0; i < 5; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -1686,7 +1686,7 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case DTS_PARAM_AEQ_BAND_type:
             for (int i = 0; i < 5; i++) {
                 gVirtualxParam[gParamIndex].params[i] = gParaRange[i];
-                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, 16bit normalized data ----> 0x%08X\n",
+                LOG("gVirtualxParam[gParamIndex].params[%d] is %f, [0x%08X]\n",
                     i, gParaRange[i], FLOAT2INT(gParaRange[i]));
             }
             rc = gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
@@ -2260,7 +2260,7 @@ void PrintHelp(int gEffectIndex, char *name)
         LOG("ParamIndex: %d -> AEQ  band type\n", (int)DTS_PARAM_AEQ_BAND_type);
         LOG("ParamValue: 0:Traditional | 1:LowShelf | 2:High Shelf | 9:Null ]\n");
         LOG("ParamIndex: %d -> DTS source channel num \n", (int)DTS_PARAM_CHANNEL_NUM);
-        LOG("ParamValue: 2 | 6");
+        LOG("ParamValue: 2 | 6 \n");
         LOG("****************************************************************************\n\n");
     } else if (gEffectIndex == EFFECT_DBX) {
         LOG("**********************************DBX***************************************\n");
@@ -2536,19 +2536,13 @@ int main(int argc,char **argv)
         }
 
 Retry_input:
-        LOG("Please enter param: <27> to Exit\n");
-        LOG("Please enter param: <EffectIndex> <ParamIndex> <ParamValue/ParamScale>\n");
+        //LOG("Please enter param: <EffectIndex> <ParamIndex> <ParamValue/ParamScale>\n");
 
         /*sleep 500ms to wait new input*/
         usleep(500*1000);
 
         if (GetIntData(&gEffectIndex) < 0)
             goto Retry_input;
-
-        if (gEffectIndex == 27) {
-            LOG("Exit...\n");
-            break;
-        }
 
         if (GetIntData(&gParamIndex) < 0)
             goto Retry_input;

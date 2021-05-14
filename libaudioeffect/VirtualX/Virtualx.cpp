@@ -37,8 +37,11 @@
 #include <cutils/properties.h>
 #include <hardware/audio_effect.h>
 
+#include "aml_android_hidl_utils.h"
 #include "IniParser.h"
 #include "Virtualx.h"
+
+using namespace android;
 
 extern "C" {
 
@@ -306,11 +309,11 @@ typedef struct mbhl_param_s {
     int32_t    mbhl_mode;
     int32_t    mbhl_lowcross;
     int32_t    mbhl_midcross;
-    int32_t    mbhl_compressorat;//Compressor Attack Time
-    int32_t    mbhl_compressorlrt;// Compressorlow Release Time
-    float      mbhl_compressolr;//Compressor low ratio
-    float      mbhl_compressolt;//Compressor low Threshold
-    float      mbhl_makeupgain;//Compressor Low Makeup Gain
+    int32_t    mbhl_attacktime;//Compressor Attack Time
+    int32_t    mbhl_lowreleasetime;// Compressorlow Release Time
+    float      mbhl_lowratio;//Compressor low ratio
+    float      mbhl_lowthreshold;//Compressor low Threshold
+    float      mbhl_lowmakeupgain;//Compressor Low Makeup Gain
     int32_t    mbhl_midreleasetime;//Compressor Mid release
     float      mbhl_midratio;//Compressor mid ratio
     float      mbhl_midthreshold;//Compressor mid threshold
@@ -318,7 +321,7 @@ typedef struct mbhl_param_s {
     int32_t    mbhl_highreleasetime;//Compressor high release time
     float      mbhl_highratio;//Compressor high ratio
     float      mbhl_highthreshold;//Compressor high threshold
-    float      mbhl_highmakegian;//Compressor high makeupgain
+    float      mbhl_highmakeupgain;//Compressor high makeupgain
 } mbhl_param;
 
 typedef struct Truvolume_param_s {
@@ -355,8 +358,10 @@ typedef struct Virtualxcfg_s {
 } Virtualxcfg;
 
 static Virtualxcfg default_Virtualxcfg {
-    {1,0,0,1.0,1.0},{1,1.0,1.0,1.0,100,0,1.0,1.0,1.0,1.0,5,50,500,500,8,20,0,7,15,5,250,4.0,0.501,1.0,250,4.0,0.501,1.0,250,4.0,0.501,1.0,},
-    {1,-24,0},{1,0,1.0,1.0,1.0,5,{100,300,1000,3000,10000}},
+    {1,0,0,1.0,1.0},
+    {1,1.0,1.0,1.0,100,0,1.0,1.0,1.0,1.0,5,50,500,500,8,20,0,7,15,5,250,4.0,0.501,1.0,250,4.0,0.501,1.0,250,4.0,0.501,1.0,},
+    {1,-24,0},
+    {1,0,1.0,1.0,1.0,5,{100,300,1000,3000,10000}},
 };
 
 typedef struct vxdata_s {
@@ -408,11 +413,11 @@ typedef struct vxdata_s {
         int32_t    mbhl_mode;
         int32_t    mbhl_lowcross;
         int32_t    mbhl_midcross;
-        int32_t    mbhl_compressorat;//Compressor Attack Time
-        int32_t    mbhl_compressorlrt;// Compressorlow Release Time
-        int32_t    mbhl_compressolr;//Compressor low ratio
-        int32_t    mbhl_compressolt;//Compressor low Threshold
-        int32_t    mbhl_makeupgain;//Compressor Low Makeup Gain
+        int32_t    mbhl_attacktime;//Compressor Attack Time
+        int32_t    mbhl_lowreleasetime;// Compressorlow Release Time
+        int32_t    mbhl_lowratio;//Compressor low ratio
+        int32_t    mbhl_lowthreshold;//Compressor low Threshold
+        int32_t    mbhl_lowmakeupgain;//Compressor Low Makeup Gain
         int32_t    mbhl_midreleasetime;//Compressor Mid release
         int32_t    mbhl_midratio;//Compressor mid ratio
         int32_t    mbhl_midthreshold;//Compressor mid threshold
@@ -420,7 +425,7 @@ typedef struct vxdata_s {
         int32_t    mbhl_highreleasetime;//Compressor high release time
         int32_t    mbhl_highratio;//Compressor high ratio
         int32_t    mbhl_highthreshold;//Compressor high threshold
-        int32_t    mbhl_highmakegian;//Compressor high makeupgain
+        int32_t    mbhl_highmakeupgain;//Compressor high makeupgain
         int32_t    mbhl_processdiscard;
         int32_t    Truvolume_enable;
         int32_t    targetlevel;
@@ -884,27 +889,27 @@ static int Virtualx_load_ini_file(vxContext *pContext)
     if (Rch == NULL) {
          goto error;
     }
-    data->vxcfg.mbhl.mbhl_compressorat = atoi(Rch);
+    data->vxcfg.mbhl.mbhl_attacktime = atoi(Rch);
     Rch = strtok(NULL, ",");
     if (Rch == NULL) {
          goto error;
     }
-    data->vxcfg.mbhl.mbhl_compressorlrt = atoi(Rch);
+    data->vxcfg.mbhl.mbhl_lowreleasetime = atoi(Rch);
     Rch = strtok(NULL, ",");
     if (Rch == NULL) {
          goto error;
     }
-    data->vxcfg.mbhl.mbhl_compressolr = atof(Rch);
+    data->vxcfg.mbhl.mbhl_lowratio = atof(Rch);
     Rch = strtok(NULL, ",");
     if (Rch == NULL) {
          goto error;
     }
-    data->vxcfg.mbhl.mbhl_compressolt = atof(Rch);
+    data->vxcfg.mbhl.mbhl_lowthreshold = atof(Rch);
     Rch = strtok(NULL, ",");
     if (Rch == NULL) {
          goto error;
     }
-    data->vxcfg.mbhl.mbhl_makeupgain = atof(Rch);
+    data->vxcfg.mbhl.mbhl_lowmakeupgain = atof(Rch);
     Rch = strtok(NULL, ",");
     if (Rch == NULL) {
          goto error;
@@ -947,8 +952,8 @@ static int Virtualx_load_ini_file(vxContext *pContext)
     if (Rch == NULL) {
          goto error;
     }
-    data->vxcfg.mbhl.mbhl_highmakegian = atof(Rch);
-    //ALOGD("mbhl_highmakegian is %d",data->vxcfg.mbhl.mbhl_highmakegian);
+    data->vxcfg.mbhl.mbhl_highmakeupgain = atof(Rch);
+    //ALOGD("mbhl_highmakeupgain is %d",data->vxcfg.mbhl.mbhl_highmakeupgain);
 
     // truvolume parse
     ini_value =  pIniParser->GetString("Virtualx", "truvolume", "NULL");
@@ -1865,11 +1870,11 @@ static int Virtualx_init(vxContext *pContext)
     data->mbhl_mode = data->vxcfg.mbhl.mbhl_mode;
     data->mbhl_lowcross = data->vxcfg.mbhl.mbhl_lowcross;
     data->mbhl_midcross = data->vxcfg.mbhl.mbhl_midcross;
-    data->mbhl_compressorat = data->vxcfg.mbhl.mbhl_compressorat;
-    data->mbhl_compressorlrt = data->vxcfg.mbhl.mbhl_compressorlrt;
-    data->mbhl_compressolr = FXP32(data->vxcfg.mbhl.mbhl_compressolr,6);
-    data->mbhl_compressolt = FXP32(data->vxcfg.mbhl.mbhl_compressolt,5);
-    data->mbhl_makeupgain = FXP32(data->vxcfg.mbhl.mbhl_makeupgain,5);
+    data->mbhl_attacktime = data->vxcfg.mbhl.mbhl_attacktime;
+    data->mbhl_lowreleasetime = data->vxcfg.mbhl.mbhl_lowreleasetime;
+    data->mbhl_lowratio = FXP32(data->vxcfg.mbhl.mbhl_lowratio,6);
+    data->mbhl_lowthreshold = FXP32(data->vxcfg.mbhl.mbhl_lowthreshold,5);
+    data->mbhl_lowmakeupgain = FXP32(data->vxcfg.mbhl.mbhl_lowmakeupgain,5);
     data->mbhl_midreleasetime = data->vxcfg.mbhl.mbhl_midreleasetime;
     data->mbhl_midratio = FXP32(data->vxcfg.mbhl.mbhl_midratio,6);
     data->mbhl_midthreshold = FXP32(data->vxcfg.mbhl.mbhl_midthreshold,5);
@@ -1877,7 +1882,7 @@ static int Virtualx_init(vxContext *pContext)
     data->mbhl_highreleasetime = data->vxcfg.mbhl.mbhl_highreleasetime;
     data->mbhl_highratio = FXP32(data->vxcfg.mbhl.mbhl_highratio,6);
     data->mbhl_highthreshold = FXP32(data->vxcfg.mbhl.mbhl_highthreshold,5);
-    data->mbhl_highmakegian = FXP32(data->vxcfg.mbhl.mbhl_highmakegian,5);
+    data->mbhl_highmakeupgain = FXP32(data->vxcfg.mbhl.mbhl_highmakeupgain,5);
     data->mbhl_processdiscard = 0;
     data->Truvolume_enable = data->vxcfg.Truvolume.enable;
     data->targetlevel = data->vxcfg.Truvolume.targetlevel;
@@ -1953,6 +1958,8 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
     int32_t basslvl;
     float * p;
     vxdata *data = &pContext->gvxdata;
+    String8 tmpParam("");
+
     switch (param) {
     case VIRTUALX_PARAM_ENABLE:
         if (!pContext->gVXLibHandler) {
@@ -1961,9 +1968,13 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         value = *(int32_t *)pValue;
         data->enable = value;
         if (data->enable) {
-            pContext->ch_num = 6;
+            /* set dts decoder output mode: */
+            /* mode 0: auto output depending stream content */
+            /* mode 2: force 2ch output */
+            setParameters(String8("VX_SET_DTS_Mode=0"));
         } else {
             pContext->ch_num = 2;
+            setParameters(String8("VX_SET_DTS_Mode=2"));
         }
         ALOGD("%s: Set status -> %s", __FUNCTION__, VXStatusstr[value]);
         break;
@@ -2504,6 +2515,13 @@ static int Virtualx_setParameter(vxContext *pContext, void *pParam, void *pValue
         }
         value = *(int32_t *)pValue;
         (*pContext->gVirtualxapi.settsx_discard)(value);
+        tsx_discard = value;
+        if (!tsx_discard) {
+            setParameters(String8("VX_SET_DTS_Mode=0"));
+        } else {
+            pContext->ch_num = 2;
+            setParameters(String8("VX_SET_DTS_Mode=2"));
+        }
         ALOGD("%s set tsx discard %d",__FUNCTION__, value);
         break;
     case DTS_PARAM_TSX_HEIGHT_DISCARD_I32:
