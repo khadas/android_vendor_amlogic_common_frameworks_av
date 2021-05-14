@@ -28,6 +28,8 @@ ifeq ($(PLATFORM_VERSION), S)
 LOCAL_CFLAGS += -DUSE_IDENTITY_CREATE_AUDIOEFFECT
 endif
 
+LOCAL_CFLAGS += -Wno-gnu-variable-sized-type-not-at-end
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../VirtualX \
 
