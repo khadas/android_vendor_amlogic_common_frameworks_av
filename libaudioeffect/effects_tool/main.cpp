@@ -259,6 +259,7 @@ Virtualx_param_t gVirtualxParam[] = {
     {{0, 4, 32},AUDIO_DTS_PARAM_TYPE_TRU_DIALOG,{1}},
     {{0, 4, 24},AUDIO_DTS_PARAM_TYPE_DEFINATION,{1}},
     {{0, 4, 12},AUDIO_DTS_PARAM_TYPE_TRU_VOLUME,{1}},
+    {{0, 4, 4}, AUDIO_DTS_ALL_PARAM_DUMP, {1}},
 };
 const char *VXStatusstr[] = {"Disable", "Enable"};
 
@@ -783,7 +784,7 @@ static int TrebleBass_effect_func(AudioEffect* gAudioEffect, int gParamIndex, in
     }
 }
 
-static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue,float gParamScale,float gParaRange[VX_MAX_PARAM_SIZE])
+static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int gParamValue, float gParamScale, float gParaRange[VX_MAX_PARAM_SIZE])
 {
     int rc = 0;
     switch (gParamIndex) {
@@ -1695,7 +1696,11 @@ static int Virtualx_effect_func(AudioEffect* gAudioEffect, int gParamIndex, int 
         case DTS_PARAM_CHANNEL_NUM:
             gVirtualxParam[gParamIndex].v = gParamValue;
             gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
-            LOG("set dts channel num is %d",gVirtualxParam[gParamIndex].v);
+            LOG("set dts channel num is %d \n",gVirtualxParam[gParamIndex].v);
+            return 0;
+        case AUDIO_DTS_ALL_PARAM_DUMP:
+            gVirtualxParam[gParamIndex].v = gParamValue;
+            gAudioEffect->setParameter(&gVirtualxParam[gParamIndex].param);
             return 0;
     default:
         LOG("Virtualx: ParamIndex = %d invalid\n", gParamIndex);
@@ -2261,6 +2266,9 @@ void PrintHelp(int gEffectIndex, char *name)
         LOG("ParamValue: 0:Traditional | 1:LowShelf | 2:High Shelf | 9:Null ]\n");
         LOG("ParamIndex: %d -> DTS source channel num \n", (int)DTS_PARAM_CHANNEL_NUM);
         LOG("ParamValue: 2 | 6 \n");
+        LOG("------------Debug interface------------\n");
+        LOG("ParamIndex: %d -> Get all parameters from VX lib\n", (int)AUDIO_DTS_ALL_PARAM_DUMP);
+        LOG("ParamValue: 0 \n");
         LOG("****************************************************************************\n\n");
     } else if (gEffectIndex == EFFECT_DBX) {
         LOG("**********************************DBX***************************************\n");

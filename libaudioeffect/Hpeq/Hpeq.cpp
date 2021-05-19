@@ -44,6 +44,8 @@ extern "C" {
 #include "libAmlHpeq.h"
 #include "../Utility/AudioFade.h"
 
+//#define HPEQ_DEBUG
+
 #define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
 #define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
@@ -127,19 +129,22 @@ const int32_t default_usr_cfg[] __unused = {
      8, -8, 12, -1, -4,   /* user */
 };
 
-    static int getprop_bool(const char *path)
-    {
-        char buf[PROPERTY_VALUE_MAX];
-        int ret = -1;
+#ifdef HPEQ_DEBUG
+static int getprop_bool(const char *path)
+{
+    char buf[PROPERTY_VALUE_MAX];
+    int ret = -1;
 
-        ret = property_get(path, buf, NULL);
-        if (ret > 0) {
-            if (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0) {
-                return 1;
-            }
+    ret = property_get(path, buf, NULL);
+    if (ret > 0) {
+        if (strcasecmp(buf, "true") == 0 || strcmp(buf, "1") == 0) {
+            return 1;
         }
-        return 0;
     }
+    return 0;
+}
+#endif
+
 int HPEQ_get_model_name(char *model_name, int size)
 {
      int ret = -1;
@@ -566,7 +571,7 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
                 break;
             }
 
-#if 0
+#ifdef HPEQ_DEBUG
             if (getprop_bool("media.audiofade.dump")) {
                 FILE *dump_fp = NULL;
                 dump_fp = fopen("/data/audio_hal/audio_in.pcm", "a+");
@@ -581,7 +586,7 @@ int HPEQ_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer_t 
 
             HPEQ_process_api(in, out, inBuffer->frameCount);
 
-#if 0
+#ifdef HPEQ_DEBUG
             if (getprop_bool("media.audiofade.dump")) {
                 FILE *dump_fp = NULL;
                 dump_fp = fopen("/data/audio_hal/audio_out.pcm", "a+");
