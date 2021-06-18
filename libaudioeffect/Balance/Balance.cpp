@@ -408,9 +408,6 @@ int Balance_process(effect_handle_t self, audio_buffer_t *inBuffer, audio_buffer
         inBuffer->frameCount == 0)
         return -EINVAL;
 
-    if (pContext->state != BALANCE_STATE_ACTIVE)
-        return -ENODATA;
-
     int16_t *in  = (int16_t *)inBuffer->raw;
     int16_t *out = (int16_t *)outBuffer->raw;
     Balancedata *data = &pContext->gBalancedata;

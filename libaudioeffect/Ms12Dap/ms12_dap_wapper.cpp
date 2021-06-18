@@ -4877,11 +4877,6 @@ Error:
             return -EINVAL;
         }
 
-        if (pContext->state != DAP_STATE_ACTIVE) {
-            ALOGE("%s, state != DAP_STATE_ACTIVE", __FUNCTION__);
-            return -ENODATA;
-        }
-
         // read input / output data format from configurations
         inSampleSize = audioFormat2sampleSize((audio_format_t)pContext->config.inputCfg.format);
         //if (-1 == inSampleSize) {
