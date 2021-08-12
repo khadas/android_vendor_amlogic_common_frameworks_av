@@ -402,7 +402,7 @@ int HPEQ_setParameter(HPEQContext *pContext, void *pParam, void *pValue)
     switch (param) {
     case HPEQ_PARAM_ENABLE:
         value = *(int32_t *)pValue;
-        data->enable = value;
+        //data->enable = value;
         ALOGD("%s: Set status -> %s", __FUNCTION__, HPEQStatusstr[value]);
         break;
     case HPEQ_PARAM_EFFECT_MODE:
