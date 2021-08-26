@@ -44,6 +44,8 @@ using namespace android;
 
 extern "C" {
 
+#include "../Utility/LibAudioEffect.h"
+
 #define MAX_BAND_VALUE 20
 #define DAP_DOLBY_PROFILE_NUM_MAX 5
 #define DAP_DOLBY_PROFILE_NUM_MIN 0
@@ -65,8 +67,6 @@ extern "C" {
 #define DAP_POST_GAIN_MIN_VALUE -2080
 
 extern const struct effect_interface_s DAPV2Interface;
-#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
 // DAP effect TYPE: 34033483-c5e9-4ff6-8b6b-0002a5d5c51b
 // DAP effect UUID: 86cafba6-3ff3-485d-b8df-0de96b34b272

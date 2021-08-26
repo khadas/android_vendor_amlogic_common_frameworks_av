@@ -43,6 +43,7 @@
 
 extern "C"{
 
+#include "../Utility/LibAudioEffect.h"
 #include "LVCS.h"
 #include "InstAlloc.h"
 #include "LVCS_Private.h"
@@ -52,9 +53,6 @@ LVCS_Instance_t         CS_Instance;        /* Concert Sound instance */
 LVCS_MemTab_t           CS_MemTab;          /* Memory table */
 LVCS_Capabilities_t     CS_Capabilities;    /* Initial capabilities */
 static pthread_mutex_t audio_vir_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
 
 // effect_handle_t interface implementation for Virtualsurround effect
 extern const struct effect_interface_s VirtualsurroundInterface;

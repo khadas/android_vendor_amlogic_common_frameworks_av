@@ -24,7 +24,6 @@ LOCAL_C_INCLUDES := \
     hardware/amlogic/audio/utils/include \
     hardware/libhardware/include \
     system/media/audio/include \
-    vendor/amlogic/frameworks/av/libaudioeffect/Utility \
     system/core/libutils/include \
 
 LOCAL_SRC_FILES := ms12v2_dap_wapper.cpp

@@ -40,8 +40,7 @@
 
 extern "C" {
 
-#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
+#include "../Utility/LibAudioEffect.h"
 
 // effect_handle_t interface implementation for Balance effect
 extern const struct effect_interface_s BalanceInterface;

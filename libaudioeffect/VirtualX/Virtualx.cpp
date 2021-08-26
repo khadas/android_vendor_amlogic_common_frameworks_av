@@ -47,10 +47,9 @@ using namespace android;
 
 extern "C" {
 
+#include "../Utility/LibAudioEffect.h"
 #include "../Utility/AudioFade.h"
 #include "aml_volume_utils.h"
-
-#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
 
 #define DTS_VIRTUALX_FRAME_SIZE 256
 #define FXP32(val, x) (int32_t)(val * ((int64_t)1L << (32 - x)))

@@ -43,11 +43,7 @@ extern "C" {
 
 #include "libAmlHpeq.h"
 #include "../Utility/AudioFade.h"
-
-//#define HPEQ_DEBUG
-
-#define MODEL_SUM_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/model/model_sum.ini"
-#define AUDIO_EFFECT_DEFAULT_PATH "/mnt/vendor/odm_ext/etc/tvconfig/audio/AMLOGIC_AUDIO_EFFECT_DEFAULT.ini"
+#include "../Utility/LibAudioEffect.h"
 
 // effect_handle_t interface implementation for HPEQ effect
 extern const struct effect_interface_s HPEQInterface;
