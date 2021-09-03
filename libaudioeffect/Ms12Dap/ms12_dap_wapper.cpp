@@ -42,7 +42,7 @@
 
 extern "C" {
 #include "../Utility/AudioFade.h"
-
+#include "../Utility/LibAudioEffect.h"
 #define LOG_NDEBUG_FUNCTION
 #ifdef LOG_NDEBUG_FUNCTION
 #define LOGFUNC(...) ((void)0)

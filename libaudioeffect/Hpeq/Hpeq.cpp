@@ -365,7 +365,7 @@ int HPEQ_getParameter(HPEQContext *pContext, void *pParam, size_t *pValueSize, v
         ALOGD("%s: Get Mode -> %d", __FUNCTION__, value);
         break;
     case HPEQ_PARAM_EFFECT_CUSTOM:
-        if (*pValueSize < sizeof(HPEQcfg_8bit_s)) {
+        if (*pValueSize < sizeof(HPEQcfg_8bit_s) || data->usr_cfg == NULL) {
             *pValueSize = 0;
             return -EINVAL;
         }
@@ -374,6 +374,7 @@ int HPEQ_getParameter(HPEQContext *pContext, void *pParam, size_t *pValueSize, v
         custom_value.band3 = (signed char)data->usr_cfg[(data->mode_num - 1) * data->band_num + 2];
         custom_value.band4 = (signed char)data->usr_cfg[(data->mode_num - 1) * data->band_num + 3];
         custom_value.band5 = (signed char)data->usr_cfg[(data->mode_num - 1) * data->band_num + 4];
+
         *(HPEQcfg_8bit_s *) pValue = custom_value;
         for (i = 0; i < data->band_num; i++) {
             ALOGD("%s: Get band[%d] -> %d", __FUNCTION__, i + 1, data->usr_cfg[(data->mode_num - 1) * data->band_num + i]);
