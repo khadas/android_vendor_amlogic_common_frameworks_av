@@ -22,7 +22,7 @@ LOCAL_C_INCLUDES := \
     system/media/audio/include
 
 LOCAL_SRC_FILES += TrebleBass.cpp
-
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_LDFLAGS_arm  += $(LOCAL_PATH)/libAmlTrebleBass.a
 LOCAL_LDFLAGS_arm64 += $(LOCAL_PATH)/libAmlTrebleBass64.a
 

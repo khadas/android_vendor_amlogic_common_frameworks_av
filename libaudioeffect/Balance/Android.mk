@@ -20,7 +20,7 @@ LOCAL_C_INCLUDES := \
     hardware/libhardware/include/hardware \
     hardware/libhardware/include \
     system/media/audio/include
-
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_SRC_FILES := Balance.cpp
 LOCAL_PRELINK_MODULE := false
 

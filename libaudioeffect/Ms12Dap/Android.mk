@@ -25,7 +25,7 @@ LOCAL_SRC_FILES := ms12_dap_wapper.cpp
 LOCAL_SRC_FILES += ../Utility/AudioFade.c
 
 LOCAL_CFLAGS += -O2
-
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_LDLIBS   +=  -llog
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true

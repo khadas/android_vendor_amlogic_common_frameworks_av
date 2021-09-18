@@ -20,7 +20,7 @@ LOCAL_C_INCLUDES := \
     system/media/audio/include
 
 LOCAL_SRC_FILES += Avl.cpp
-
+LOCAL_CFLAGS += -DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 LOCAL_LDFLAGS_arm  += $(LOCAL_PATH)/lib_aml_agc.a
 LOCAL_LDFLAGS_arm64  += $(LOCAL_PATH)/lib_aml_agc64.a
 LOCAL_MULTILIB := both
