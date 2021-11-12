@@ -85,7 +85,7 @@ namespace android {
             MEDIA_ERROR_AMLOGIC_NETWORK_READ_TIMEOUT = MEDIA_ERROR_AMLOGIC_BASE + 1,
 
             //network connected again.
-            MEDIA_ERROR_AMLOGIC_NETWORK_READ_AGAIN = MEDIA_ERROR_AMLOGIC_BASE + 1,
+            MEDIA_ERROR_AMLOGIC_NETWORK_READ_AGAIN = MEDIA_ERROR_AMLOGIC_BASE + 2,
         };
 
 	enum {
