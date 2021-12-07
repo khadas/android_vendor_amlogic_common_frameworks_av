@@ -56,6 +56,8 @@ extern "C" {
 #define FXP16(val, x) (int32_t)(val * (1L << (16 - x)))
 #define INT32P(val, x) (float)((double)val / (double)((int64_t)1L << (32 - x)))
 #define INT16P(val, x) (float)((double)val / (double)(1L << (16 - x)))
+#define Clip(acc,min,max) ((acc) > max ? max : ((acc) < min ? min : (acc)))
+
 #define GAIN_MAX 1073741824
 #define GAIN_MIN 1073742
 #define MAX(acc, max) ((acc) = (acc) > max ? max : (acc))
@@ -1926,12 +1928,14 @@ static int Virtualx_init(vxContext *pContext)
     data->preset = data->vxcfg.Truvolume.preset;
     data->aeq_enable = data->vxcfg.eqparam.aeq_enable;
     data->aeq_discard = data->vxcfg.eqparam.aeq_discard;
-    data->aeq_inputgain = FXP16(data->vxcfg.eqparam.aeq_inputgain, 1);
-    data->aeq_outputgain = FXP16(data->vxcfg.eqparam.aeq_outputgain, 1);
-    data->aeq_bypassgain = FXP16(data->vxcfg.eqparam.aeq_bypassgain, 1);
+    data->aeq_inputgain = Clip(FXP16(data->vxcfg.eqparam.aeq_inputgain, 1), 0, 32767);
+    data->aeq_outputgain = Clip(FXP16(data->vxcfg.eqparam.aeq_outputgain, 1), 0, 32767);
+    data->aeq_bypassgain = Clip(FXP16(data->vxcfg.eqparam.aeq_bypassgain, 1), 0, 32767);
     data->aeq_bandnum = data->vxcfg.eqparam.aeq_bandnum;
-    for (int i = 0; i < data->aeq_bandnum; i++)
+
+    for (int i = 0; i < data->aeq_bandnum; i++) {
         data->aeq_fc[i] = data->vxcfg.eqparam.aeq_fc[i];
+    }
     //malloc memory for ppMappedInCh[3]~ppMappedInCh[11] to fix crash (null pointer dereference)
     for (int i = 0; i < 12; i++) {
         pContext->ppMappedInCh[i]  = pContext->sTempBuffer[i];
