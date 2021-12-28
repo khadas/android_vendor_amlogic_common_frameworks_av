@@ -14,6 +14,7 @@ bootstrap_go_package {
     ],
     srcs: [
         "libmediavendorext.go",
+        "libmediavendorext_sdkverion.go",
     ],
     pluginFor: ["soong_build"],
 }
@@ -22,10 +23,17 @@ mediaext_defaults {
     name : "libmediavendorext-default-system_ext",
 }
 
+mediaext_sdkversion {
+    name : "libmediavendorext-sdk-version",
+}
+
 cc_library_shared  {
     name: "libmediavendorext",
 
-    defaults: ["libmediavendorext-default-system_ext"],
+    defaults: [
+         "libmediavendorext-default-system_ext",
+         "libmediavendorext-sdk-version",
+    ],
     srcs: [
          "MediaVendorExt.cpp",
     ],
@@ -81,6 +89,9 @@ cc_library_shared  {
 cc_library_static {
     name: "libmediavendor_default",
     vendor_available: true,
+    defaults: [
+         "libmediavendorext-sdk-version",
+    ],
     srcs: [
          "MediaVendorExt.cpp",
     ],
