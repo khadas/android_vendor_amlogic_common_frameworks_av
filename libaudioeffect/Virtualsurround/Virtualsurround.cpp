@@ -180,9 +180,9 @@ int Virtualsurround_init(VirtualsurroundContext *pContext) {
     pthread_mutex_lock(&audio_vir_mutex);
     CS_Capabilities.MaxBlockSize = 2048;
     CS_Capabilities.pBundleInstance = (void*)hCSInstance;
-    LVCS_Status = LVCS_Memory(LVM_NULL,
-                              &CS_MemTab,
-                              &CS_Capabilities);
+    //LVCS_Status = LVCS_Memory(LVM_NULL,
+    //                          &CS_MemTab,
+    //                         &CS_Capabilities);
     CS_MemTab.Region[LVCS_MEMREGION_PERSISTENT_SLOW_DATA].pBaseAddress = &CS_Instance;
     /* Allocate memory */
     for (i = 0; i < LVM_NR_MEMORY_REGIONS; i++) {
@@ -200,9 +200,9 @@ int Virtualsurround_init(VirtualsurroundContext *pContext) {
         }
     }
     hCSInstance = LVM_NULL;
-    LVCS_Status = LVCS_Init(&hCSInstance,
-                              &CS_MemTab,
-                              &CS_Capabilities);
+    //LVCS_Status = LVCS_Init(&hCSInstance,
+    //                          &CS_MemTab,
+    //                          &CS_Capabilities);
     pContext->gVirtualsurrounddata.tbcfg.effectlevel = 0;
     pContext->gVirtualsurrounddata.tbcfg.enable = 0;
     CS_Params->OperatingMode = LVCS_OFF;
@@ -279,7 +279,7 @@ int Virtualsurround_setParameter(VirtualsurroundContext *pContext, void *pParam,
                CS_Params->OperatingMode = LVCS_ON;
             else
                CS_Params->OperatingMode = LVCS_OFF;
-            LVCS_Control(hCSInstance,CS_Params);
+            //LVCS_Control(hCSInstance,CS_Params);
             pthread_mutex_unlock(&audio_vir_mutex);
             break;
         case VIRTUALSURROUND_PARAM_EFFECTLEVEL:
@@ -291,7 +291,7 @@ int Virtualsurround_setParameter(VirtualsurroundContext *pContext, void *pParam,
                 CS_Params->EffectLevel  = 0;
             else
                 CS_Params->EffectLevel = tbcfg->effectlevel * 327;
-            LVCS_Control(hCSInstance,CS_Params);
+            //LVCS_Control(hCSInstance,CS_Params);
             pthread_mutex_unlock(&audio_vir_mutex);
             break;
         default:
@@ -373,7 +373,7 @@ int Virtualsurround_process(effect_handle_t self, audio_buffer_t *inBuffer, audi
         if (hCSInstance == LVM_NULL)
             return LVCS_NULLADDRESS;
         pthread_mutex_lock(&audio_vir_mutex);
-        LVCS_Process(hCSInstance, in, out, inBuffer->frameCount);
+        //LVCS_Process(hCSInstance, in, out, inBuffer->frameCount);
         pthread_mutex_unlock(&audio_vir_mutex);
 
     }

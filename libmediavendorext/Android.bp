@@ -73,6 +73,7 @@ cc_library_shared  {
     cflags: [
         "-Wno-multichar",
         "-Werror",
+        "-Wno-format",
     ],
 }
 
@@ -130,5 +131,6 @@ cc_library_static {
     cflags: [
         "-Wno-multichar",
         "-Werror",
+        "-Wno-format",
     ],
 }
